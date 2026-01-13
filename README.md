@@ -1,19 +1,37 @@
-# 🎈 Blank app template
+# SupplySyncAI — Inventory EDA (Streamlit)
 
-A simple Streamlit app template for you to modify!
+This workspace contains a Streamlit app for inventory EDA.
 
-[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://blank-app-template.streamlit.app/)
+## Files
 
-### How to run it on your own machine
+- `app.py` — main Streamlit app (Inventory EDA)
+- `requirements.txt` — Python dependencies
 
-1. Install the requirements
+## Local build & run
 
-   ```
-   $ pip install -r requirements.txt
-   ```
+1. Create and activate a virtual environment (recommended):
 
-2. Run the app
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
 
-   ```
-   $ streamlit run streamlit_app.py
-   ```
+2. Install dependencies:
+
+```bash
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+3. Run the app with Streamlit:
+
+```bash
+streamlit run app.py
+```
+
+Open the URL printed by Streamlit (usually http://localhost:8501) in your browser.
+
+## Notes
+
+- The app expects a CSV with columns used in the code (e.g. `stock_value`, `fill_rate_pct`, `stockout_pct`, `inventory_turnover`, `model_confidence_score`, `product_id`, `store_id`, `delivery_time_mins`, `fuel_cost`, `route_efficiency_score`, `transfer_qty`, `transfer_cost`).
+- If you already have `streamlit_app.py`, you can remove or ignore it; the app entry here is `app.py`.
