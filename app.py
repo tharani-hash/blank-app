@@ -317,7 +317,7 @@ if st.button("Load Data"):
     st.session_state.df.rename(columns=COLUMN_MAP, inplace=True)
 
     st.success("Data loaded successfully!")
-)
+
 
 # Show preview if loaded
 df = st.session_state.df
