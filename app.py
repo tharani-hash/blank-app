@@ -304,7 +304,20 @@ if "df" not in st.session_state:
 # Load Button
 if st.button("Load Data"):
     st.session_state.df = pd.read_csv("FACT_SUPPLY_CHAIN_FINAL.csv")
+
+    # Column mapping (adjust to your actual CSV headers)
+    COLUMN_MAP = {
+        "sales_value": "revenue",
+        "shop_id": "store_id",
+        "cust_id": "customer_id",
+        "promo_code": "promo_id",
+        "channel_code": "sales_channel_id",
+        "txn_date": "date"
+    }
+    st.session_state.df.rename(columns=COLUMN_MAP, inplace=True)
+
     st.success("Data loaded successfully!")
+)
 
 # Show preview if loaded
 df = st.session_state.df
