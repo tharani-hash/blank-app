@@ -303,7 +303,7 @@ if "df" not in st.session_state:
 
 # Load Button
 if st.button("Load Data"):
-    st.session_state.df = pd.read_csv("data/fact_consolidated.csv")
+    st.session_state.df = pd.read_csv("FACT_SUPPLY_CHAIN_FINAL.csv")
     st.success("Data loaded successfully!")
 
 # Show preview if loaded
