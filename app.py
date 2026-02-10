@@ -342,7 +342,6 @@ if df is not None:
     st.info(f"**Shape:** {df.shape[0]} rows × {df.shape[1]} columns")
 else:
     st.info("Click the button above to load the dataset.")
-
 # ────────────────────────────────────────────────
 # DATA PRE-PROCESSING
 # ────────────────────────────────────────────────
@@ -385,28 +384,60 @@ This step guarantees that downstream models are trained on
 </div>
 """, unsafe_allow_html=True)
 
-# Safety check
+# Safety check - show warning but DON'T stop
 if st.session_state.df is None:
-    st.warning("⚠ Load data first.")
-    st.stop()
+    st.warning(" Load data first.")
+else:
+    df = st.session_state.df
 
-df = st.session_state.df
+    # Preprocessing controls
+    col1, col2, col3 = st.columns(3)
+    remove_dup = col1.checkbox("Remove Duplicates", value=True)
+    drop_null = col2.checkbox("Drop NULL Rows", value=False)
+    fill_unknown = col3.checkbox("Fill NULLs with 'Unknown'", value=True)
 
-# Preprocessing controls
-col1, col2, col3 = st.columns(3)
-remove_dup = col1.checkbox("Remove Duplicates", value=True)
-drop_null = col2.checkbox("Drop NULL Rows", value=False)
-fill_unknown = col3.checkbox("Fill NULLs with 'Unknown'", value=True)
+    if st.button("Apply Preprocessing"):
+        temp = df.copy()
+        if remove_dup: temp = temp.drop_duplicates()
+        if drop_null:  temp = temp.dropna()
+        if fill_unknown: temp = temp.fillna("Unknown")
+        st.session_state.df = temp
+        st.session_state.preprocessing_completed = True
+        st.success("Preprocessing applied!")
+        st.rerun()  # Refresh to show EDA section
 
-if st.button("Apply Preprocessing"):
-    temp = df.copy()
-    if remove_dup: temp = temp.drop_duplicates()
-    if drop_null:  temp = temp.dropna()
-    if fill_unknown: temp = temp.fillna("Unknown")
-    st.session_state.df = temp
-    st.session_state.preprocessing_completed = True
-    st.success("Preprocessing applied!")
+# ────────────────────────────────────────────────
+# EDA SECTION - ONLY SHOW IF PREPROCESSING DONE
+# ────────────────────────────────────────────────
+if not st.session_state.get("preprocessing_completed", False):
+    st.info("ℹ Please apply at least one data pre-processing step to unlock EDA.")
+else:
+    df = st.session_state.get("df", None)
 
+    if df is None:
+        st.warning("⚠ No dataset available.")
+    else:
+        # EDA Header
+        st.markdown(
+            """
+            <div style="
+                background-color:#0B2C5D;
+                padding:18px 25px;
+                border-radius:10px;
+                color:white;
+                margin-top:20px;
+                margin-bottom:10px;
+            ">
+                <h3 style="margin:0;">Exploratory Data Analysis (EDA)</h3>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+        st.info(f"Dataset Loaded: **{df.shape[0]} rows × {df.shape[1]} columns**")
+
+        # ... rest of your EDA code continues here ...
+        # [Keep all your existing EDA code inside this else block]
 # ────────────────────────────────────────────────
 # EDA SECTION
 # ────────────────────────────────────────────────
