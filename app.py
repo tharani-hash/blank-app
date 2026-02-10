@@ -426,6 +426,91 @@ st.markdown(
 
 st.info(f"Dataset Loaded: **{df.shape[0]} rows × {df.shape[1]} columns**")
 
+# EDA readiness check
+EDA_REQUIREMENTS = {
+    "Data Quality Overview": {
+        "required_any": [],
+        "required_all": [],
+    },
+    "Sales Overview": {
+        "required_any": [["total_sales_amount", "revenue", "sales_amount", "product_revenue"]],
+        "required_all": [],
+    },
+    "Promotion Effectiveness": {
+        "required_any": [
+            ["promo_id", "promo_transaction_id", "promotion_id", "promotion_transaction_id"],
+            [
+                "promo_total_sales_amount",
+                "promo_sales_amount",
+                "promo_sales",
+                "promo_revenue",
+                "total_sales_amount",
+                "revenue",
+            ],
+        ],
+        "required_all": [],
+    },
+    "Product-Level Analysis": {
+        "required_any": [["product_id"]],
+        "required_all": [],
+    },
+    "Customer-Level Analysis": {
+        "required_any": [["customer_id"], ["total_sales_amount", "revenue", "sales_amount"]],
+        "required_all": [],
+    },
+    "Event Impact Analysis": {
+        "required_any": [["event_id", "event_category", "event_name"], ["total_sales_amount", "revenue", "sales_amount"]],
+        "required_all": [],
+    },
+    "Store-Level Analysis": {
+        "required_any": [
+            ["store_id", "destination_store", "to_store_id"],
+            ["total_sales_amount", "store_revenue", "revenue", "sales_amount", "quantity_sold", "quantity", "sales_quantity"],
+        ],
+        "required_all": [],
+    },
+    "Sales Channel Analysis": {
+        "required_any": [["sales_channel_id", "channel_id", "sales_channel"], ["total_sales_amount", "revenue", "sales_amount"]],
+        "required_all": [],
+    },
+    "Summary Report": {
+        "required_any": [],
+        "required_all": [],
+    },
+}
+
+def _check_eda_requirements(df_check: pd.DataFrame):
+    cols = set(df_check.columns)
+    rows = []
+    for option, req in EDA_REQUIREMENTS.items():
+        missing_groups = []
+        # required_all: every column must exist
+        for c in req.get("required_all", []):
+            if c not in cols:
+                missing_groups.append(f"Missing: {c}")
+
+        # required_any: for each group, at least one must exist
+        for group in req.get("required_any", []):
+            if not any(c in cols for c in group):
+                missing_groups.append("Any of: " + ", ".join(group))
+
+        ready = len(missing_groups) == 0
+        rows.append(
+            {
+                "Analysis": option,
+                "Status": "Ready" if ready else "Missing columns",
+                "Details": "-" if ready else "; ".join(missing_groups),
+            }
+        )
+    return pd.DataFrame(rows)
+
+with st.expander("EDA readiness check (required columns)", expanded=False):
+    try:
+        req_df = _check_eda_requirements(df)
+        st.dataframe(req_df, use_container_width=True)
+    except Exception as e:
+        st.warning(f"Could not compute EDA readiness check: {e}")
+
 # EDA Navigation
 st.markdown("###  List of Analytics")
 
