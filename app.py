@@ -560,90 +560,97 @@ elif eda_option == "Sales Overview":
 )
     st.markdown("###  Sales Overview")
 
-    # Column mapping for sales data
-    col_rev = None
-    col_qty = None
-    col_price = None
-    col_date = None
+    # Column mapping for inventory data
+    col_stock_value = None
+    col_on_hand = None
+    col_fill_rate = None
+    col_stockout = None
+    col_turnover = None
     
-    # Find revenue column
-    for col in ['total_sales_amount', 'revenue', 'sales_amount', 'product_revenue']:
+    # Find stock value column
+    for col in ['stock_value', 'inventory_value', 'total_stock_value']:
         if col in df.columns:
-            col_rev = col
+            col_stock_value = col
             break
     
-    # Find quantity column
-    for col in ['quantity_sold', 'quantity', 'sales_quantity']:
+    # Find on hand quantity column
+    for col in ['on_hand_qty', 'on_hand_quantity', 'stock_on_hand']:
         if col in df.columns:
-            col_qty = col
+            col_on_hand = col
             break
     
-    # Find price column
-    for col in ['unit_price', 'price']:
+    # Find fill rate column
+    for col in ['fill_rate_pct', 'fill_rate', 'fill_percentage']:
         if col in df.columns:
-            col_price = col
+            col_fill_rate = col
             break
     
-    # Find date column
-    for col in ['date', 'created_at', 'sales_date', 'transaction_date']:
+    # Find stockout percentage column
+    for col in ['stockout_pct', 'stockout_percentage', 'out_of_stock_pct']:
         if col in df.columns:
-            col_date = col
+            col_stockout = col
+            break
+    
+    # Find inventory turnover column
+    for col in ['inventory_turnover', 'turnover', 'stock_turnover']:
+        if col in df.columns:
+            col_turnover = col
             break
 
     # ---------- ROW 1 ----------
-    if col_rev:
+    if col_stock_value:
         st.markdown(
             """
             <div class="summary-grid">
                 <div class="summary-card">
-                    <div class="summary-title">Total Revenue</div>
+                    <div class="summary-title">Total Stock Value</div>
                     <div class="summary-value">{}</div>
                 </div>
                 <div class="summary-card">
-                    <div class="summary-title">Average Order Value</div>
+                    <div class="summary-title">Average Stock Value</div>
                     <div class="summary-value">{}</div>
                 </div>
                 <div class="summary-card">
-                    <div class="summary-title">Maximum Order Value</div>
+                    <div class="summary-title">Maximum Stock Value</div>
                     <div class="summary-value">{}</div>
                 </div>
             </div>
             """.format(
-                f"${df[col_rev].sum():,.2f}",
-                f"${df[col_rev].mean():,.2f}",
-                f"${df[col_rev].max():,.2f}",
+                f"${df[col_stock_value].sum():,.2f}",
+                f"${df[col_stock_value].mean():,.2f}",
+                f"${df[col_stock_value].max():,.2f}",
             ),
             unsafe_allow_html=True
         )
 
     # ---------- ROW 2 ----------
-    if col_qty and col_price:
+    if col_on_hand and col_stock_value:
         st.markdown(
             """
             <div class="summary-grid">
                 <div class="summary-card">
-                    <div class="summary-title">Total Sales</div>
+                    <div class="summary-title">Total On Hand Quantity</div>
                     <div class="summary-value">{}</div>
                 </div>
                 <div class="summary-card">
-                    <div class="summary-title">Total Units Sold</div>
+                    <div class="summary-title">Average On Hand Quantity</div>
                     <div class="summary-value">{}</div>
                 </div>
                 <div class="summary-card">
-                    <div class="summary-title">Average Units / Transaction</div>
+                    <div class="summary-title">Total Products</div>
                     <div class="summary-value">{}</div>
                 </div>
             </div>
             """.format(
-                f"${(df[col_qty] * df[col_price]).sum():,.2f}",
-                f"{df[col_qty].sum():,}",
-                f"{df[col_qty].mean():.2f}",
+                f"{df[col_on_hand].sum():,}",
+                f"{df[col_on_hand].mean():.2f}",
+                f"{df['product_id'].nunique():,}",
             ),
             unsafe_allow_html=True
         )
 
     # ---------- TIME SERIES ANALYSIS ----------
-    if col_date and col_rev:
+    if 'date_id' in df.columns and col_stock_value:
         st.markdown(
         """
         <div style="
@@ -656,27 +663,23 @@ elif eda_option == "Sales Overview":
             margin-bottom:10px;
             text-align:center;
         ">
-            <b>Sales By Time</b>
+            <b>Stock Value By Time</b>
         </div>
         """,
         unsafe_allow_html=True
     )
 
-        # Convert to datetime safely
-        df_temp = df.copy()
-        df_temp[col_date] = pd.to_datetime(df_temp[col_date], errors='coerce')
-
-        # Aggregate sales by date
-        sales_time = (
-            df_temp.groupby(df_temp[col_date].dt.date)[col_rev]
+        # Aggregate stock value by date
+        stock_time = (
+            df.groupby('date_id')[col_stock_value]
             .sum()
             .sort_index()
         )
 
-        st.bar_chart(sales_time)
+        st.bar_chart(stock_time)
 
     # ---------- STORE ANALYSIS ----------
-    if 'store_id' in df.columns and col_rev:
+    if 'store_id' in df.columns and col_stock_value:
         st.markdown(
         """
         <div style="
@@ -689,22 +692,22 @@ elif eda_option == "Sales Overview":
             margin-bottom:10px;
             text-align:center;
         ">
-            <b>Sales By Store</b>
+            <b>Stock Value By Store</b>
         </div>
         """,
         unsafe_allow_html=True
     )
 
-        sales_store = (
-            df.groupby('store_id')[col_rev]
+        stock_store = (
+            df.groupby('store_id')[col_stock_value]
             .sum()
             .sort_values(ascending=False)
         )
 
-        st.bar_chart(sales_store)
+        st.bar_chart(stock_store)
 
-    # ---------- SALES CHANNEL ANALYSIS ----------
-    if 'sales_channel_id' in df.columns and col_rev:
+    # ---------- CLUSTER ANALYSIS ----------
+    if 'cluster_id' in df.columns and col_stock_value:
         st.markdown(
         """
         <div style="
@@ -717,19 +720,19 @@ elif eda_option == "Sales Overview":
             margin-bottom:10px;
             text-align:center;
         ">
-            <b>Sales By Sales Channels</b>
+            <b>Stock Value By Cluster</b>
         </div>
         """,
         unsafe_allow_html=True
     )
 
-        sales_channel = (
-            df.groupby('sales_channel_id')[col_rev]
+        stock_cluster = (
+            df.groupby('cluster_id')[col_stock_value]
             .sum()
             .sort_values(ascending=False)
         )
 
-        st.bar_chart(sales_channel)
+        st.bar_chart(stock_cluster)
 
 elif eda_option == "Promotion Effectiveness":
     st.markdown(
@@ -873,9 +876,9 @@ elif eda_option == "Product-Level Analysis":
     ">
     <b>What this section does:</b>
     <ul>
-        <li>Analyzes sales performance at the product (SKU) level</li>
-        <li>Highlights top products by revenue and volume</li>
-        <li>Shows demand concentration across products</li>
+        <li>Analyzes inventory performance at the product (SKU) level</li>
+        <li>Highlights top products by stock value and quantity</li>
+        <li>Shows inventory concentration across products</li>
     </ul>
     </div>
     """,
@@ -883,21 +886,21 @@ elif eda_option == "Product-Level Analysis":
     )
 
     if "product_id" in df.columns:
-        prod_rev_col = None
-        for c in ["total_sales_amount", "product_revenue", "revenue", "sales_amount"]:
+        prod_stock_col = None
+        for c in ["stock_value", "on_hand_qty", "inventory_value"]:
             if c in df.columns:
-                prod_rev_col = c
+                prod_stock_col = c
                 break
 
         prod_qty_col = None
-        for c in ["quantity_sold", "quantity", "sales_quantity"]:
+        for c in ["on_hand_qty", "reserved_qty", "in_transit_qty"]:
             if c in df.columns:
                 prod_qty_col = c
                 break
 
         agg = {}
-        if prod_rev_col:
-            agg[prod_rev_col] = "sum"
+        if prod_stock_col:
+            agg[prod_stock_col] = "sum"
         if prod_qty_col:
             agg[prod_qty_col] = "sum"
 
@@ -912,29 +915,29 @@ elif eda_option == "Product-Level Analysis":
                         <div class="summary-value">{}</div>
                     </div>
                     <div class="summary-card">
-                        <div class="summary-title">Total Product Revenue</div>
+                        <div class="summary-title">Total Stock Value</div>
                         <div class="summary-value">{}</div>
                     </div>
                     <div class="summary-card">
-                        <div class="summary-title">Total Units Sold</div>
+                        <div class="summary-title">Total Quantity</div>
                         <div class="summary-value">{}</div>
                     </div>
                 </div>
                 """.format(
                     f"{prod.shape[0]:,}",
-                    f"${prod[prod_rev_col].sum():,.2f}" if prod_rev_col else "NA",
+                    f"${prod[prod_stock_col].sum():,.2f}" if prod_stock_col else "NA",
                     f"{prod[prod_qty_col].sum():,}" if prod_qty_col else "NA",
                 ),
                 unsafe_allow_html=True,
             )
 
             col1, col2 = st.columns(2)
-            if prod_rev_col:
+            if prod_stock_col:
                 with col1:
-                    top = prod.sort_values(prod_rev_col, ascending=False).head(20)
+                    top = prod.sort_values(prod_stock_col, ascending=False).head(20)
                     fig, ax = plt.subplots(figsize=(8, 4))
-                    ax.bar(top.index.astype(str), top[prod_rev_col])
-                    ax.set_title("Top Products by Revenue")
+                    ax.bar(top.index.astype(str), top[prod_stock_col])
+                    ax.set_title("Top Products by Stock Value")
                     ax.tick_params(axis="x", rotation=45)
                     ax.grid(axis="y", linestyle="--", alpha=0.3)
                     st.pyplot(fig)
@@ -945,13 +948,13 @@ elif eda_option == "Product-Level Analysis":
                     top = prod.sort_values(prod_qty_col, ascending=False).head(20)
                     fig, ax = plt.subplots(figsize=(8, 4))
                     ax.bar(top.index.astype(str), top[prod_qty_col], color="#2F75B5")
-                    ax.set_title("Top Products by Units Sold")
+                    ax.set_title("Top Products by Quantity")
                     ax.tick_params(axis="x", rotation=45)
                     ax.grid(axis="y", linestyle="--", alpha=0.3)
                     st.pyplot(fig)
                     plt.close(fig)
         else:
-            st.info("Product revenue/quantity columns not available in the dataset.")
+            st.info("Product stock/quantity columns not available in the dataset.")
     else:
         st.info("Product column not available in the dataset.")
 
@@ -1117,7 +1120,7 @@ elif eda_option == "Store-Level Analysis":
         margin-bottom:20px;
     ">
     <b>What this section does:</b><br><br>
-    Compares store revenue and volume across locations.
+    Analyzes inventory performance and distribution across stores.
     </div>
     """,
     unsafe_allow_html=True
@@ -1130,13 +1133,13 @@ elif eda_option == "Store-Level Analysis":
             break
 
     store_rev_col = None
-    for c in ["total_sales_amount", "store_revenue", "revenue", "sales_amount"]:
+    for c in ["stock_value", "inventory_value", "total_stock_value"]:
         if c in df.columns:
             store_rev_col = c
             break
 
     store_qty_col = None
-    for c in ["quantity_sold", "quantity", "sales_quantity"]:
+    for c in ["on_hand_qty", "reserved_qty", "in_transit_qty"]:
         if c in df.columns:
             store_qty_col = c
             break
@@ -1157,11 +1160,11 @@ elif eda_option == "Store-Level Analysis":
                     <div class="summary-value">{}</div>
                 </div>
                 <div class="summary-card">
-                    <div class="summary-title">Total Store Revenue</div>
+                    <div class="summary-title">Total Stock Value</div>
                     <div class="summary-value">{}</div>
                 </div>
                 <div class="summary-card">
-                    <div class="summary-title">Total Units Sold</div>
+                    <div class="summary-title">Total Quantity</div>
                     <div class="summary-value">{}</div>
                 </div>
             </div>
@@ -1179,7 +1182,7 @@ elif eda_option == "Store-Level Analysis":
                 top = s.sort_values(store_rev_col, ascending=False).head(20)
                 fig, ax = plt.subplots(figsize=(8, 4))
                 ax.bar(top.index.astype(str), top[store_rev_col])
-                ax.set_title("Top Stores by Revenue")
+                ax.set_title("Top Stores by Stock Value")
                 ax.tick_params(axis="x", rotation=45)
                 ax.grid(axis="y", linestyle="--", alpha=0.3)
                 st.pyplot(fig)
@@ -1190,7 +1193,7 @@ elif eda_option == "Store-Level Analysis":
                 top = s.sort_values(store_qty_col, ascending=False).head(20)
                 fig, ax = plt.subplots(figsize=(8, 4))
                 ax.bar(top.index.astype(str), top[store_qty_col], color="#2F75B5")
-                ax.set_title("Top Stores by Units Sold")
+                ax.set_title("Top Stores by Quantity")
                 ax.tick_params(axis="x", rotation=45)
                 ax.grid(axis="y", linestyle="--", alpha=0.3)
                 st.pyplot(fig)
@@ -1211,39 +1214,39 @@ elif eda_option == "Sales Channel Analysis":
         margin-bottom:20px;
     ">
     <b>What this section does:</b><br><br>
-    Compares revenue across sales channels.
+    Analyzes inventory distribution across clusters and routes.
     </div>
     """,
     unsafe_allow_html=True
     )
 
-    channel_col = None
-    for c in ["sales_channel_id", "channel_id", "sales_channel"]:
+    cluster_col = None
+    for c in ["cluster_id", "route_id", "vehicle_id"]:
         if c in df.columns:
-            channel_col = c
+            cluster_col = c
             break
 
-    channel_rev_col = None
-    for c in ["total_sales_amount", "revenue", "sales_amount"]:
+    cluster_stock_col = None
+    for c in ["stock_value", "on_hand_qty", "inventory_value"]:
         if c in df.columns:
-            channel_rev_col = c
+            cluster_stock_col = c
             break
 
-    if channel_col and channel_rev_col:
-        ch = df.groupby(channel_col)[channel_rev_col].sum().sort_values(ascending=False)
+    if cluster_col and cluster_stock_col:
+        ch = df.groupby(cluster_col)[cluster_stock_col].sum().sort_values(ascending=False)
         st.markdown(
             """
             <div class="summary-grid">
                 <div class="summary-card">
-                    <div class="summary-title"># Channels</div>
+                    <div class="summary-title"># Clusters</div>
                     <div class="summary-value">{}</div>
                 </div>
                 <div class="summary-card">
-                    <div class="summary-title">Channel Revenue</div>
+                    <div class="summary-title">Total Stock Value</div>
                     <div class="summary-value">{}</div>
                 </div>
                 <div class="summary-card">
-                    <div class="summary-title">Top Channel Revenue</div>
+                    <div class="summary-title">Top Cluster Value</div>
                     <div class="summary-value">{}</div>
                 </div>
             </div>
@@ -1258,13 +1261,13 @@ elif eda_option == "Sales Channel Analysis":
         fig, ax = plt.subplots(figsize=(10, 4))
         top = ch.head(15)
         ax.bar(top.index.astype(str), top.values)
-        ax.set_title("Revenue by Sales Channel")
+        ax.set_title("Stock Value by Cluster")
         ax.tick_params(axis="x", rotation=45)
         ax.grid(axis="y", linestyle="--", alpha=0.3)
         st.pyplot(fig)
         plt.close(fig)
     else:
-        st.info("Sales channel columns not available in the dataset.")
+        st.info("Cluster columns not available in the dataset.")
 
 elif eda_option == "Summary Report":
     st.markdown(
