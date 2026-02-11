@@ -1334,9 +1334,9 @@ elif eda_option == "Summary Report":
         ">
         <b>Summary:</b>
         <ul>
-            <li>This dataset contains a rich mix of numeric and categorical features across products, customers, stores, channels, promotions, and events.</li>
-            <li>Use the Sales Overview to verify seasonality/trends and baseline demand.</li>
-            <li>Use Promotion, Product, Customer, Store and Channel analyses to identify concentration and key drivers.</li>
+            <li>This dataset contains comprehensive inventory metrics across products, stores, clusters, transfers, and optimization models.</li>
+            <li>Use Inventory Overview to verify stock levels, values, and trends over time.</li>
+            <li>Use Product, Store, Cluster, and Transfer analyses to identify optimization opportunities.</li>
         </ul>
         </div>
         """,
@@ -1355,109 +1355,91 @@ elif eda_option == "Summary Report":
             margin-bottom:10px;
             text-align:center;
         ">
-            <b>Retail Summary</b>
+            <b>Inventory Summary</b>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    # Column mapping for retail summary
-    retail_rev_col = None
-    retail_qty_col = None
-    retail_price_col = None
-    retail_store_col = None
-    retail_product_col = None
-    retail_date_col = None
-    retail_channel_col = None
-    retail_event_col = None
-    retail_customer_col = None
-    retail_txn_col = None
-    retail_promo_rev_col = None
-    retail_stock_sold_col = None
-    retail_stock_damaged_col = None
-    retail_returns_col = None
+    # Column mapping for inventory summary
+    inventory_stock_col = None
+    inventory_qty_col = None
+    inventory_value_col = None
+    inventory_store_col = None
+    inventory_product_col = None
+    inventory_date_col = None
+    inventory_cluster_col = None
+    inventory_transfer_col = None
+    inventory_model_col = None
+    inventory_opt_col = None
 
-    for c in ["total_sales_amount", "revenue", "sales_amount", "product_revenue", "store_revenue", "promo_total_sales_amount"]:
+    for c in ["stock_value", "inventory_value", "total_stock_value"]:
         if c in df.columns:
-            retail_rev_col = c
+            inventory_stock_col = c
             break
 
-    for c in ["quantity_sold", "quantity", "sales_quantity"]:
+    for c in ["on_hand_qty", "reserved_qty", "in_transit_qty"]:
         if c in df.columns:
-            retail_qty_col = c
+            inventory_qty_col = c
             break
 
-    for c in ["unit_price", "price"]:
+    for c in ["date_id", "week_start_date", "created_at"]:
         if c in df.columns:
-            retail_price_col = c
+            inventory_date_col = c
             break
 
-    for c in ["created_at", "date", "sales_date", "transaction_date"]:
+    for c in ["cluster_id", "route_id", "vehicle_id"]:
         if c in df.columns:
-            retail_date_col = c
+            inventory_cluster_col = c
             break
 
-    for c in ["sales_channel_id", "channel_id", "sales_channel"]:
+    for c in ["shipment_id", "transfer_id", "from_store_id"]:
         if c in df.columns:
-            retail_channel_col = c
+            inventory_transfer_col = c
             break
 
-    for c in ["event_id", "event_category", "event_name"]:
+    for c in ["model_confidence_score", "model_version", "recommendation_date"]:
         if c in df.columns:
-            retail_event_col = c
+            inventory_model_col = c
             break
 
-    for c in ["customer_id"]:
+    for c in ["optimal_transfer_qty", "cost_minimization_pct", "service_level_gain_pct"]:
         if c in df.columns:
-            retail_customer_col = c
+            inventory_opt_col = c
             break
 
-    for c in ["transaction_id", "order_id"]:
+    for c in ["transaction_id", "shipment_id"]:
         if c in df.columns:
-            retail_txn_col = c
+            inventory_txn_col = c
             break
 
-    for c in ["promo_total_sales_amount", "promo_sales_amount", "promo_revenue"]:
+    # Remove unused variables
+    inventory_price_col = None
+    inventory_store_col = None
+    inventory_product_col = None
+
+    for c in ["store_id", "store", "store_name", "destination_store", "to_store_id"]:
         if c in df.columns:
-            retail_promo_rev_col = c
+            inventory_store_col = c
             break
 
-    for c in ["stock_sold_qty"]:
+    for c in ["product_id", "product", "product_name", "sku"]:
         if c in df.columns:
-            retail_stock_sold_col = c
+            inventory_product_col = c
             break
 
-    for c in ["stock_damaged_qty"]:
-        if c in df.columns:
-            retail_stock_damaged_col = c
-            break
+    # Build inventory metrics
+    if inventory_stock_col:
+        stock_metric_col = inventory_stock_col
+    elif inventory_qty_col and inventory_stock_col:
+        stock_metric_col = inventory_stock_col
+    else:
+        stock_metric_col = None
 
-    for c in ["returns_quantity_returned", "returns_qty", "return_qty"]:
-        if c in df.columns:
-            retail_returns_col = c
-            break
+    df_inventory = df.copy()
 
-    for c in ["store_id", "store", "store_name", "destination_store", "to_store_id", "city", "region", "location"]:
-        if c in df.columns:
-            retail_store_col = c
-            break
-
-    for c in ["product_id", "product", "product_name", "sku", "item_name"]:
-        if c in df.columns:
-            retail_product_col = c
-            break
-
-    # Build a unified sales metric
-    sales_metric_col = None
-    df_retail = df.copy()
-    if retail_rev_col:
-        sales_metric_col = retail_rev_col
-    elif retail_qty_col and retail_price_col:
-        df_retail["_computed_sales_amount"] = df_retail[retail_qty_col] * df_retail[retail_price_col]
-        sales_metric_col = "_computed_sales_amount"
-
-    if sales_metric_col is None:
-        st.info("Retail summary needs a revenue column (e.g. total_sales_amount) or both quantity and price columns.")
+    if stock_metric_col is None:
+        st.info("Inventory summary needs stock value or quantity columns.")
     else:
         # Summary cards
         top_store_label = "NA"
@@ -1465,75 +1447,75 @@ elif eda_option == "Summary Report":
         top_product_label = "NA"
         top_product_value = "NA"
 
-        if retail_store_col:
-            store_sales = (
-                df_retail.groupby(retail_store_col)[sales_metric_col]
+        if inventory_store_col:
+            store_stock = (
+                df_inventory.groupby(inventory_store_col)[stock_metric_col]
                 .sum()
                 .replace([np.inf, -np.inf], np.nan)
                 .dropna()
                 .sort_values(ascending=False)
             )
-            if store_sales.shape[0]:
-                top_store_label = str(store_sales.index[0])
-                top_store_value = f"${store_sales.iloc[0]:,.2f}"
+            if store_stock.shape[0]:
+                top_store_label = str(store_stock.index[0])
+                top_store_value = f"${store_stock.iloc[0]:,.2f}"
 
-        if retail_product_col:
-            product_sales = (
-                df_retail.groupby(retail_product_col)[sales_metric_col]
+        if inventory_product_col:
+            product_stock = (
+                df_inventory.groupby(inventory_product_col)[stock_metric_col]
                 .sum()
                 .replace([np.inf, -np.inf], np.nan)
                 .dropna()
                 .sort_values(ascending=False)
             )
-            if product_sales.shape[0]:
-                top_product_label = str(product_sales.index[0])
-                top_product_value = f"${product_sales.iloc[0]:,.2f}"
+            if product_stock.shape[0]:
+                top_product_label = str(product_stock.index[0])
+                top_product_value = f"${product_stock.iloc[0]:,.2f}"
 
-        total_sales_value = df_retail[sales_metric_col].replace([np.inf, -np.inf], np.nan).dropna().sum()
-        total_units_value = None
-        if retail_qty_col and retail_qty_col in df_retail.columns:
-            total_units_value = df_retail[retail_qty_col].replace([np.inf, -np.inf], np.nan).dropna().sum()
+        total_stock_value = df_inventory[stock_metric_col].replace([np.inf, -np.inf], np.nan).dropna().sum()
+        total_qty_value = None
+        if inventory_qty_col and inventory_qty_col in df_inventory.columns:
+            total_qty_value = df_inventory[inventory_qty_col].replace([np.inf, -np.inf], np.nan).dropna().sum()
 
         txn_count_value = None
-        if retail_txn_col and retail_txn_col in df_retail.columns:
-            txn_count_value = df_retail[retail_txn_col].nunique(dropna=True)
+        if inventory_txn_col and inventory_txn_col in df_inventory.columns:
+            txn_count_value = df_inventory[inventory_txn_col].nunique(dropna=True)
 
         aov_value = None
-        if txn_count_value:
-            aov_value = total_sales_value / txn_count_value
+        if txn_count_value and total_stock_value:
+            aov_value = total_stock_value / txn_count_value
 
         avg_price_value = None
-        if total_units_value and total_units_value != 0:
-            avg_price_value = total_sales_value / total_units_value
+        if total_qty_value and total_qty_value != 0 and total_stock_value:
+            avg_price_value = total_stock_value / total_qty_value
 
         st.markdown(
             """
             <div class="summary-grid">
                 <div class="summary-card">
-                    <div class="summary-title">Total Retail Sales</div>
+                    <div class="summary-title">Total Stock Value</div>
                     <div class="summary-value">{}</div>
                 </div>
                 <div class="summary-card">
-                    <div class="summary-title">Total Units Sold</div>
+                    <div class="summary-title">Total Quantity</div>
                     <div class="summary-value">{}</div>
                 </div>
                 <div class="summary-card">
-                    <div class="summary-title">Avg Order Value</div>
+                    <div class="summary-title">Avg Unit Value</div>
                     <div class="summary-value">{}</div>
                 </div>
                 <div class="summary-card">
-                    <div class="summary-title">Top Sales Location</div>
+                    <div class="summary-title">Top Store</div>
                     <div class="summary-value">{}</div>
                 </div>
                 <div class="summary-card">
-                    <div class="summary-title">Best-Selling Product</div>
+                    <div class="summary-title">Top Product</div>
                     <div class="summary-value">{}</div>
                 </div>
             </div>
             """.format(
-                f"${total_sales_value:,.2f}",
-                f"{total_units_value:,.0f}" if total_units_value is not None else "NA",
-                f"${aov_value:,.2f}" if aov_value is not None else "NA",
+                f"${total_stock_value:,.2f}",
+                f"{total_qty_value:,.0f}" if total_qty_value is not None else "NA",
+                f"${avg_price_value:,.2f}" if avg_price_value is not None else "NA",
                 top_store_label,
                 top_product_label,
             ),
@@ -1543,126 +1525,51 @@ elif eda_option == "Summary Report":
         if avg_price_value is not None:
             st.info(f"**Avg selling price:** ${avg_price_value:,.2f} per unit")
 
-        if retail_promo_rev_col and retail_promo_rev_col in df_retail.columns and total_sales_value:
-            promo_total = df_retail[retail_promo_rev_col].replace([np.inf, -np.inf], np.nan).dropna().sum()
-            promo_share = (promo_total / total_sales_value) * 100
-            st.info(f"**Promo revenue share:** ${promo_total:,.2f} ({promo_share:.1f}%)")
+        if inventory_transfer_col and inventory_transfer_col in df_inventory.columns and total_stock_value:
+            transfer_total = df_inventory[inventory_transfer_col].replace([np.inf, -np.inf], np.nan).dropna().sum()
+            st.info(f"**Total transfers:** {transfer_total:,.0f}")
 
         colA, colB = st.columns(2)
 
         with colA:
-            if retail_store_col:
-                st.markdown("#### Top Locations by Sales")
-                top_locations = store_sales.head(15).reset_index()
-                top_locations.columns = ["Location", "Sales"]
+            if inventory_store_col:
+                st.markdown("#### Top Stores by Stock Value")
+                top_locations = store_stock.head(15).reset_index()
+                top_locations.columns = ["Store", "Stock Value"]
                 st.dataframe(top_locations, use_container_width=True)
             else:
-                st.info("No location/store column found for location-level summary.")
+                st.info("No store column found for store-level summary.")
 
         with colB:
-            if retail_product_col:
-                st.markdown("#### Top Products by Sales")
-                top_products = product_sales.head(15).reset_index()
-                top_products.columns = ["Product", "Sales"]
+            if inventory_product_col:
+                st.markdown("#### Top Products by Stock Value")
+                top_products = product_stock.head(15).reset_index()
+                top_products.columns = ["Product", "Stock Value"]
                 st.dataframe(top_products, use_container_width=True)
             else:
                 st.info("No product column found for product-level summary.")
 
-        if retail_date_col:
-            st.markdown("#### Sales Trend by Date")
-            temp = df_retail[[retail_date_col, sales_metric_col]].copy()
-            temp[retail_date_col] = pd.to_datetime(temp[retail_date_col], errors="coerce")
-            temp = temp.dropna(subset=[retail_date_col])
+        if inventory_date_col:
+            st.markdown("#### Stock Trend by Date")
+            temp = df_inventory[[inventory_date_col, stock_metric_col]].copy()
+            temp[inventory_date_col] = pd.to_datetime(temp[inventory_date_col], errors="coerce")
+            temp = temp.dropna(subset=[inventory_date_col])
             if not temp.empty:
-                by_date = temp.groupby(temp[retail_date_col].dt.date)[sales_metric_col].sum().sort_index()
+                by_date = temp.groupby(temp[inventory_date_col].dt.date)[stock_metric_col].sum().sort_index()
                 st.line_chart(by_date)
             else:
                 st.info("Date column exists but values could not be parsed.")
 
-        if retail_channel_col:
-            st.markdown("#### Sales by Channel")
-            channel_sales = (
-                df_retail.groupby(retail_channel_col)[sales_metric_col]
+        if inventory_cluster_col:
+            st.markdown("#### Inventory by Cluster")
+            cluster_stock = (
+                df_inventory.groupby(inventory_cluster_col)[stock_metric_col]
                 .sum()
-                .replace([np.inf, -np.inf], np.nan)
-                .dropna()
                 .sort_values(ascending=False)
             )
-            if channel_sales.shape[0]:
-                st.bar_chart(channel_sales.head(15))
+            st.bar_chart(cluster_stock.head(20))
 
-        if retail_event_col:
-            st.markdown("#### Top Events by Sales")
-            event_sales = (
-                df_retail.groupby(retail_event_col)[sales_metric_col]
-                .sum()
-                .replace([np.inf, -np.inf], np.nan)
-                .dropna()
-                .sort_values(ascending=False)
-            )
-            if event_sales.shape[0]:
-                top_events = event_sales.head(15).reset_index()
-                top_events.columns = ["Event", "Sales"]
-                st.dataframe(top_events, use_container_width=True)
-
-        if retail_customer_col:
-            st.markdown("#### Top Customers by Sales")
-            cust_sales = (
-                df_retail.groupby(retail_customer_col)[sales_metric_col]
-                .sum()
-                .replace([np.inf, -np.inf], np.nan)
-                .dropna()
-                .sort_values(ascending=False)
-            )
-            if cust_sales.shape[0]:
-                top_customers = cust_sales.head(15).reset_index()
-                top_customers.columns = ["Customer", "Sales"]
-                st.dataframe(top_customers, use_container_width=True)
-
-                top10_share = (cust_sales.head(10).sum() / cust_sales.sum()) * 100 if cust_sales.sum() else 0
-                st.info(f"**Revenue concentration:** Top 10 customers contribute {top10_share:.1f}% of customer revenue")
-
-        if retail_store_col and retail_product_col:
-            st.markdown("#### Best-Selling Product in Each Location")
-            per_loc = (
-                df_retail.groupby([retail_store_col, retail_product_col])[sales_metric_col]
-                .sum()
-                .reset_index()
-                .replace([np.inf, -np.inf], np.nan)
-                .dropna(subset=[sales_metric_col])
-            )
-
-            idx = per_loc.groupby(retail_store_col)[sales_metric_col].idxmax()
-            best_by_loc = per_loc.loc[idx].sort_values(sales_metric_col, ascending=False)
-            best_by_loc.columns = ["Location", "Best Product", "Sales"]
-            st.dataframe(best_by_loc.head(30), use_container_width=True)
-
-        if retail_stock_sold_col or retail_stock_damaged_col or retail_returns_col:
-            st.markdown("#### Inventory & Returns Summary")
-            inv_cols = []
-            if retail_stock_sold_col:
-                inv_cols.append(retail_stock_sold_col)
-            if retail_stock_damaged_col:
-                inv_cols.append(retail_stock_damaged_col)
-            if retail_returns_col:
-                inv_cols.append(retail_returns_col)
-
-            inv_vals = {}
-            if retail_stock_sold_col:
-                inv_vals["Stock Sold Qty"] = df_retail[retail_stock_sold_col].replace([np.inf, -np.inf], np.nan).dropna().sum()
-            if retail_stock_damaged_col:
-                inv_vals["Stock Damaged Qty"] = df_retail[retail_stock_damaged_col].replace([np.inf, -np.inf], np.nan).dropna().sum()
-            if retail_returns_col:
-                inv_vals["Returns Qty"] = df_retail[retail_returns_col].replace([np.inf, -np.inf], np.nan).dropna().sum()
-
-            inv_df = pd.DataFrame({"Metric": list(inv_vals.keys()), "Value": list(inv_vals.values())})
-            st.dataframe(inv_df, use_container_width=True)
-
-            if retail_returns_col and retail_stock_sold_col and inv_vals.get("Stock Sold Qty"):
-                rr = (inv_vals.get("Returns Qty", 0) / inv_vals.get("Stock Sold Qty")) * 100
-                st.info(f"**Return rate:** {rr:.2f}%")
-
-else:
+        else:
     st.info(f"Detailed visualization for **{eda_option}** coming soon...")
 
 # Footer
