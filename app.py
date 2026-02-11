@@ -1570,7 +1570,7 @@ elif eda_option == "Summary Report":
             st.bar_chart(cluster_stock.head(20))
 
         else:
-    st.info(f"Detailed visualization for **{eda_option}** coming soon...")
+            st.info(f"Detailed visualization for **{eda_option}** coming soon...")
 
 # Footer
 st.markdown("""
