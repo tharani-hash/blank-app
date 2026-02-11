@@ -303,21 +303,8 @@ if "df" not in st.session_state:
 
 # Load Button
 if st.button("Load Data"):
-    st.session_state.df = pd.read_csv("FACT_SUPPLY_CHAIN_FINAL.csv")
-
-    # Column mapping (adjust to your actual CSV headers)
-    COLUMN_MAP = {
-        "sales_value": "revenue",
-        "shop_id": "store_id",
-        "cust_id": "customer_id",
-        "promo_code": "promo_id",
-        "channel_code": "sales_channel_id",
-        "txn_date": "date"
-    }
-    st.session_state.df.rename(columns=COLUMN_MAP, inplace=True)
-
+    st.session_state.df = pd.read_csv("data/fact_consolidated.csv")
     st.success("Data loaded successfully!")
-
 
 # Show preview if loaded
 df = st.session_state.df
@@ -342,6 +329,7 @@ if df is not None:
     st.info(f"**Shape:** {df.shape[0]} rows × {df.shape[1]} columns")
 else:
     st.info("Click the button above to load the dataset.")
+
 # ────────────────────────────────────────────────
 # DATA PRE-PROCESSING
 # ────────────────────────────────────────────────
@@ -384,60 +372,28 @@ This step guarantees that downstream models are trained on
 </div>
 """, unsafe_allow_html=True)
 
-# Safety check - show warning but DON'T stop
+# Safety check
 if st.session_state.df is None:
-    st.warning(" Load data first.")
-else:
-    df = st.session_state.df
+    st.warning("⚠ Load data first.")
+    st.stop()
 
-    # Preprocessing controls
-    col1, col2, col3 = st.columns(3)
-    remove_dup = col1.checkbox("Remove Duplicates", value=True)
-    drop_null = col2.checkbox("Drop NULL Rows", value=False)
-    fill_unknown = col3.checkbox("Fill NULLs with 'Unknown'", value=True)
+df = st.session_state.df
 
-    if st.button("Apply Preprocessing"):
-        temp = df.copy()
-        if remove_dup: temp = temp.drop_duplicates()
-        if drop_null:  temp = temp.dropna()
-        if fill_unknown: temp = temp.fillna("Unknown")
-        st.session_state.df = temp
-        st.session_state.preprocessing_completed = True
-        st.success("Preprocessing applied!")
-        st.rerun()  # Refresh to show EDA section
+# Preprocessing controls
+col1, col2, col3 = st.columns(3)
+remove_dup = col1.checkbox("Remove Duplicates", value=True)
+drop_null = col2.checkbox("Drop NULL Rows", value=False)
+fill_unknown = col3.checkbox("Fill NULLs with 'Unknown'", value=True)
 
-# ────────────────────────────────────────────────
-# EDA SECTION - ONLY SHOW IF PREPROCESSING DONE
-# ────────────────────────────────────────────────
-if not st.session_state.get("preprocessing_completed", False):
-    st.info("ℹ Please apply at least one data pre-processing step to unlock EDA.")
-else:
-    df = st.session_state.get("df", None)
+if st.button("Apply Preprocessing"):
+    temp = df.copy()
+    if remove_dup: temp = temp.drop_duplicates()
+    if drop_null:  temp = temp.dropna()
+    if fill_unknown: temp = temp.fillna("Unknown")
+    st.session_state.df = temp
+    st.session_state.preprocessing_completed = True
+    st.success("Preprocessing applied!")
 
-    if df is None:
-        st.warning("⚠ No dataset available.")
-    else:
-        # EDA Header
-        st.markdown(
-            """
-            <div style="
-                background-color:#0B2C5D;
-                padding:18px 25px;
-                border-radius:10px;
-                color:white;
-                margin-top:20px;
-                margin-bottom:10px;
-            ">
-                <h3 style="margin:0;">Exploratory Data Analysis (EDA)</h3>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-        st.info(f"Dataset Loaded: **{df.shape[0]} rows × {df.shape[1]} columns**")
-
-        # ... rest of your EDA code continues here ...
-        # [Keep all your existing EDA code inside this else block]
 # ────────────────────────────────────────────────
 # EDA SECTION
 # ────────────────────────────────────────────────
@@ -469,91 +425,6 @@ st.markdown(
 )
 
 st.info(f"Dataset Loaded: **{df.shape[0]} rows × {df.shape[1]} columns**")
-
-# EDA readiness check
-EDA_REQUIREMENTS = {
-    "Data Quality Overview": {
-        "required_any": [],
-        "required_all": [],
-    },
-    "Sales Overview": {
-        "required_any": [["total_sales_amount", "revenue", "sales_amount", "product_revenue"]],
-        "required_all": [],
-    },
-    "Promotion Effectiveness": {
-        "required_any": [
-            ["promo_id", "promo_transaction_id", "promotion_id", "promotion_transaction_id"],
-            [
-                "promo_total_sales_amount",
-                "promo_sales_amount",
-                "promo_sales",
-                "promo_revenue",
-                "total_sales_amount",
-                "revenue",
-            ],
-        ],
-        "required_all": [],
-    },
-    "Product-Level Analysis": {
-        "required_any": [["product_id"]],
-        "required_all": [],
-    },
-    "Customer-Level Analysis": {
-        "required_any": [["customer_id"], ["total_sales_amount", "revenue", "sales_amount"]],
-        "required_all": [],
-    },
-    "Event Impact Analysis": {
-        "required_any": [["event_id", "event_category", "event_name"], ["total_sales_amount", "revenue", "sales_amount"]],
-        "required_all": [],
-    },
-    "Store-Level Analysis": {
-        "required_any": [
-            ["store_id", "destination_store", "to_store_id"],
-            ["total_sales_amount", "store_revenue", "revenue", "sales_amount", "quantity_sold", "quantity", "sales_quantity"],
-        ],
-        "required_all": [],
-    },
-    "Sales Channel Analysis": {
-        "required_any": [["sales_channel_id", "channel_id", "sales_channel"], ["total_sales_amount", "revenue", "sales_amount"]],
-        "required_all": [],
-    },
-    "Summary Report": {
-        "required_any": [],
-        "required_all": [],
-    },
-}
-
-def _check_eda_requirements(df_check: pd.DataFrame):
-    cols = set(df_check.columns)
-    rows = []
-    for option, req in EDA_REQUIREMENTS.items():
-        missing_groups = []
-        # required_all: every column must exist
-        for c in req.get("required_all", []):
-            if c not in cols:
-                missing_groups.append(f"Missing: {c}")
-
-        # required_any: for each group, at least one must exist
-        for group in req.get("required_any", []):
-            if not any(c in cols for c in group):
-                missing_groups.append("Any of: " + ", ".join(group))
-
-        ready = len(missing_groups) == 0
-        rows.append(
-            {
-                "Analysis": option,
-                "Status": "Ready" if ready else "Missing columns",
-                "Details": "-" if ready else "; ".join(missing_groups),
-            }
-        )
-    return pd.DataFrame(rows)
-
-with st.expander("EDA readiness check (required columns)", expanded=False):
-    try:
-        req_df = _check_eda_requirements(df)
-        st.dataframe(req_df, use_container_width=True)
-    except Exception as e:
-        st.warning(f"Could not compute EDA readiness check: {e}")
 
 # EDA Navigation
 st.markdown("###  List of Analytics")
@@ -616,8 +487,7 @@ if eda_option is None:
 
 # EDA Content
 if eda_option == "Data Quality Overview":
-    st.markdown(
-    """
+    st.markdown("""
     <div style="
         background-color:#2F75B5;
         padding:28px;
@@ -627,35 +497,9 @@ if eda_option == "Data Quality Overview":
         line-height:1.6;
         margin-bottom:20px;
     ">
-
-    <b>What this section does:</b>
-
-    This checks whether your dataset is <b>clean, usable, and reliable</b> before any deeper analysis.
-
-    It typically highlights:
-    <ul>
-        <li>Row/column counts</li>
-        <li>Duplicate records</li>
-        <li>Missing values (overall and by column)</li>
-    </ul><br>
-
-    <b>Why this matters:</b>
-
-    Poor data quality can distort trends and produce misleading insights.
-    This step helps you catch issues early and understand what needs cleaning.
-    <br><br>
-
-    <b>Key insights users get:</b>
-    <ul>
-        <li>Which columns have the most missing data</li>
-        <li>How much missing/duplicate data exists overall</li>
-        <li>Whether the dataset is ready for analysis/modeling</li>
-    </ul>
-
+    <b>Data Quality Analysis</b>
     </div>
-    """,
-    unsafe_allow_html=True
-    )
+    """, unsafe_allow_html=True)
     
     col1, col2 = st.columns(2)
     col1.metric("Rows", f"{len(df):,}")
@@ -900,29 +744,24 @@ elif eda_option == "Promotion Effectiveness":
         margin-bottom:20px;
     ">
 
-    <b>What this section does:</b>
+    <b>What this section does:</b><br><br>
 
-    This analyzes how <b>promotions impact sales performance</b> by comparing promotion cost, sales uplift, and revenue contribution.
+    This analyzes how <b>promotions impact sales performance</b> by comparing
+    promotion cost, sales uplift, and profitability.
 
-    It typically highlights:
+    It evaluates:
     <ul>
         <li>Revenue uplift generated by promotions</li>
         <li>Promotion cost vs sales impact</li>
         <li>Effectiveness of individual promotions</li>
     </ul>
+    <br>
 
     <b>Why this matters:</b>
 
     Promotions can increase sales but may also reduce margins.
-    This helps ensure promotions are <b>cost-effective and profitable</b>.
-    <br><br>
-
-    <b>Key insights users get:</b>
-    <ul>
-        <li>Which promotions drive the most revenue</li>
-        <li>Whether higher promo spend correlates with higher uplift</li>
-        <li>Which promotions may be inefficient and need redesign</li>
-    </ul>
+    This analysis helps ensure promotions are
+    <b>cost-effective and profitable</b>.
 
     </div>
     """,
@@ -1032,30 +871,12 @@ elif eda_option == "Product-Level Analysis":
         line-height:1.6;
         margin-bottom:20px;
     ">
-
     <b>What this section does:</b>
-
-    This breaks down performance at the <b>product (SKU) level</b> to identify your top and bottom performers.
-
-    It typically highlights:
     <ul>
-        <li>Top products by revenue</li>
-        <li>Top products by units sold</li>
-        <li>How concentrated sales are across products</li>
-    </ul><br>
-
-    <b>Why this matters:</b>
-
-    Product-level insights help with assortment planning, replenishment priorities, and identifying over-dependence on a few SKUs.
-    <br><br>
-
-    <b>Key insights users get:</b>
-    <ul>
-        <li>Which SKUs contribute most to revenue and volume</li>
-        <li>Whether sales are driven by a small set of products</li>
-        <li>Early signals of potential inventory or pricing opportunities</li>
+        <li>Analyzes sales performance at the product (SKU) level</li>
+        <li>Highlights top products by revenue and volume</li>
+        <li>Shows demand concentration across products</li>
     </ul>
-
     </div>
     """,
     unsafe_allow_html=True
@@ -1146,30 +967,12 @@ elif eda_option == "Customer-Level Analysis":
         line-height:1.6;
         margin-bottom:20px;
     ">
-
     <b>What this section does:</b>
-
-    This evaluates <b>customer value and purchase behavior</b> to understand who drives revenue.
-
-    It typically highlights:
     <ul>
-        <li>Top customers by revenue</li>
-        <li>Revenue distribution across customers</li>
-        <li>How concentrated customer revenue is</li>
-    </ul><br>
-
-    <b>Why this matters:</b>
-
-    Knowing your highest-value customers helps with retention strategy, targeting, and forecasting (especially when revenue is concentrated).
-    <br><br>
-
-    <b>Key insights users get:</b>
-    <ul>
-        <li>Whether a few customers drive most of the business</li>
-        <li>How revenue varies across customers</li>
-        <li>Which customers may be key accounts</li>
+        <li>Analyzes customer value and purchase behavior</li>
+        <li>Highlights top customers by revenue</li>
+        <li>Shows distribution of customer revenue</li>
     </ul>
-
     </div>
     """,
     unsafe_allow_html=True
@@ -1245,24 +1048,8 @@ elif eda_option == "Event Impact Analysis":
         line-height:1.6;
         margin-bottom:20px;
     ">
-
-    <b>What this section does:</b>
-
-    This measures how <b>events</b> (holidays, campaigns, special days) influence sales by comparing revenue across event categories.
-    <br><br>
-
-    <b>Why this matters:</b>
-
-    Events can create demand spikes or dips. Understanding their impact improves planning for inventory, staffing, and promotion timing.
-    <br><br>
-
-    <b>Key insights users get:</b>
-    <ul>
-        <li>Which events correlate with the highest sales</li>
-        <li>Whether event-driven sales are significant vs baseline</li>
-        <li>Prioritization of events for future planning</li>
-    </ul>
-
+    <b>What this section does:</b><br><br>
+    Analyzes how events influence sales by comparing revenue across events.
     </div>
     """,
     unsafe_allow_html=True
@@ -1329,30 +1116,8 @@ elif eda_option == "Store-Level Analysis":
         line-height:1.6;
         margin-bottom:20px;
     ">
-
-    <b>What this section does:</b>
-
-    This compares performance across <b>stores/locations</b> to see where sales are strongest (and weakest).
-
-    It typically highlights:
-    <ul>
-        <li>Top stores by revenue</li>
-        <li>Top stores by units sold</li>
-        <li>Differences in performance across locations</li>
-    </ul><br>
-
-    <b>Why this matters:</b>
-
-    Store-level differences drive allocation and replenishment decisions. This helps you match inventory and strategy to local demand.
-    <br><br>
-
-    <b>Key insights users get:</b>
-    <ul>
-        <li>Which locations are key revenue drivers</li>
-        <li>Whether certain stores consistently underperform</li>
-        <li>Where to focus operational improvements</li>
-    </ul>
-
+    <b>What this section does:</b><br><br>
+    Compares store revenue and volume across locations.
     </div>
     """,
     unsafe_allow_html=True
@@ -1445,30 +1210,8 @@ elif eda_option == "Sales Channel Analysis":
         line-height:1.6;
         margin-bottom:20px;
     ">
-
-    <b>What this section does:</b>
-
-    This compares performance across <b>sales channels</b> (e.g., online vs in-store, marketplace vs direct).
-
-    It typically highlights:
-    <ul>
-        <li>Top channels by revenue</li>
-        <li>Revenue distribution across channels</li>
-        <li>Channel concentration risk</li>
-    </ul><br>
-
-    <b>Why this matters:</b>
-
-    Channel mix influences strategy, pricing, and marketing spend. Understanding which channels drive revenue helps optimize investments.
-    <br><br>
-
-    <b>Key insights users get:</b>
-    <ul>
-        <li>Which channels generate the most revenue</li>
-        <li>Whether you rely heavily on one channel</li>
-        <li>Opportunities to grow underutilized channels</li>
-    </ul>
-
+    <b>What this section does:</b><br><br>
+    Compares revenue across sales channels.
     </div>
     """,
     unsafe_allow_html=True
@@ -1535,30 +1278,8 @@ elif eda_option == "Summary Report":
         line-height:1.6;
         margin-bottom:20px;
     ">
-
-    <b>What this section does:</b>
-
-    This provides a <b>consolidated summary</b> of key EDA outputs and overall dataset readiness.
-
-    It typically highlights:
-    <ul>
-        <li>High-level dataset stats (rows, columns, missing values, duplicates)</li>
-        <li>Key takeaways from earlier EDA sections</li>
-        <li>A quick “what to do next” checklist</li>
-    </ul><br>
-
-    <b>Why this matters:</b>
-
-    It helps stakeholders quickly understand the dataset quality and the most important signals before moving into forecasting/modeling.
-    <br><br>
-
-    <b>Key insights users get:</b>
-    <ul>
-        <li>Whether the data looks ready for downstream use</li>
-        <li>Which EDA sections to focus on based on findings</li>
-        <li>A single place to review the most important summary metrics</li>
-    </ul>
-
+    <b>What this section does:</b><br><br>
+    Provides a consolidated summary of key EDA findings and dataset readiness.
     </div>
     """,
     unsafe_allow_html=True
