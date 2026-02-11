@@ -427,6 +427,16 @@ st.markdown(
 st.info(f"Dataset Loaded: **{df.shape[0]} rows × {df.shape[1]} columns**")
 
 # EDA Navigation
+# Session state for drill-down navigation
+if "drill_down_path" not in st.session_state:
+    st.session_state.drill_down_path = []
+if "selected_store" not in st.session_state:
+    st.session_state.selected_store = None
+if "selected_product" not in st.session_state:
+    st.session_state.selected_product = None
+if "selected_cluster" not in st.session_state:
+    st.session_state.selected_cluster = None
+
 st.markdown("###  List of Analytics")
 
 if "eda_option" not in st.session_state:
@@ -454,7 +464,32 @@ def nav_button(label, value):
     else:
         if st.button(label, use_container_width=True):
             st.session_state.eda_option = value
+            # Clear drill-down path when switching analysis
+            st.session_state.drill_down_path = []
+            st.session_state.selected_store = None
+            st.session_state.selected_product = None
+            st.session_state.selected_cluster = None
             st.rerun()
+
+def handle_drill_down(entity_type, entity_id, entity_name):
+    """Handle drill-down clicks and update session state"""
+    if entity_type == "store":
+        st.session_state.selected_store = entity_id
+        st.session_state.drill_down_path = ["Store", entity_name]
+    elif entity_type == "product":
+        st.session_state.selected_product = entity_id
+        st.session_state.drill_down_path = ["Product", entity_name]
+    elif entity_type == "cluster":
+        st.session_state.selected_cluster = entity_id
+        st.session_state.drill_down_path = ["Cluster", entity_name]
+    
+    # Clear other selections
+    if entity_type != "store":
+        st.session_state.selected_store = None
+    if entity_type != "product":
+        st.session_state.selected_product = None
+    if entity_type != "cluster":
+        st.session_state.selected_cluster = None
 
 row1 = st.columns(5)
 row2 = st.columns(4)
@@ -462,20 +497,20 @@ row2 = st.columns(4)
 with row1[0]:
     nav_button("Data Quality Overview", "Data Quality Overview")
 with row1[1]:
-    nav_button("Sales Overview", "Sales Overview")
+    nav_button("Inventory Overview", "Sales Overview")
 with row1[2]:
-    nav_button("Promotion Effectiveness", "Promotion Effectiveness")
+    nav_button("Transfer Optimization", "Promotion Effectiveness")
 with row1[3]:
     nav_button("Product-Level Analysis", "Product-Level Analysis")
 with row1[4]:
-    nav_button("Customer-Level Analysis", "Customer-Level Analysis")
+    nav_button("Route Analysis", "Customer-Level Analysis")
 
 with row2[0]:
-    nav_button("Event Impact Analysis", "Event Impact Analysis")
+    nav_button("Model Optimization", "Event Impact Analysis")
 with row2[1]:
     nav_button("Store-Level Analysis", "Store-Level Analysis")
 with row2[2]:
-    nav_button("Sales Channel Analysis", "Sales Channel Analysis")
+    nav_button("Cluster Analysis", "Sales Channel Analysis")
 with row2[3]:
     nav_button("Summary Report", "Summary Report")
 
@@ -558,7 +593,7 @@ elif eda_option == "Sales Overview":
     """,
     unsafe_allow_html=True
 )
-    st.markdown("###  Sales Overview")
+    st.markdown("### Inventory Overview")
 
     # Column mapping for inventory data
     col_stock_value = None
@@ -596,6 +631,146 @@ elif eda_option == "Sales Overview":
         if col in df.columns:
             col_turnover = col
             break
+
+    # ---------- DRILL-DOWN SUMMARY ----------
+    st.markdown("#### 📊 Inventory Summary")
+    summary_cols = st.columns(4)
+    
+    with summary_cols[0]:
+        st.metric("Total Stock Value", f"${df[col_stock_value].sum():,.0f}" if col_stock_value else "N/A")
+    
+    with summary_cols[1]:
+        st.metric("Total On-Hand Quantity", f"{df[col_on_hand].sum():,.0f}" if col_on_hand else "N/A")
+    
+    with summary_cols[2]:
+        avg_fill = df[col_fill_rate].mean() if col_fill_rate else None
+        st.metric("Avg Fill Rate", f"{avg_fill:.1f}%" if avg_fill else "N/A")
+    
+    with summary_cols[3]:
+        avg_stockout = df[col_stockout].mean() if col_stockout else None
+        st.metric("Avg Stockout Rate", f"{avg_stockout:.1f}%" if avg_stockout else "N/A")
+
+    # ---------- DRILL-DOWN NAVIGATION ----------
+    if st.session_state.drill_down_path:
+        st.markdown("#### 📍 Current Drill-Down Path")
+        path_display = " → ".join(st.session_state.drill_down_path)
+        st.info(f"**Navigation:** {path_display}")
+        
+        if st.button("🔄 Reset Navigation"):
+            st.session_state.drill_down_path = []
+            st.session_state.selected_store = None
+            st.session_state.selected_product = None
+            st.session_state.selected_cluster = None
+            st.rerun()
+
+    # ---------- INTERACTIVE CHARTS WITH DRILL-DOWN ----------
+    st.markdown("#### 📈 Interactive Inventory Analysis")
+    
+    # Store analysis with drill-down
+    if col_stock_value and 'store_id' in df.columns:
+        with st.expander("🏪 Store Performance (Click to Drill Down)", expanded=False):
+            store_performance = df.groupby('store_id')[col_stock_value].sum().sort_values(ascending=False)
+            
+            # Create clickable store data
+            store_df = store_performance.reset_index()
+            store_df.columns = ['Store ID', 'Stock Value']
+            
+            # Display store table with drill-down capability
+            for _, row in store_df.head(10).iterrows():
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    st.write(f"**{row['Store ID']}**")
+                with col2:
+                    if st.button(f"🔍 View Details", key=f"store_{row['Store ID']}"):
+                        handle_drill_down("store", row['Store ID'], row['Store ID'])
+            
+            if st.checkbox("Show All Stores", key="show_all_stores"):
+                st.dataframe(store_df, use_container_width=True)
+
+    # Product analysis with drill-down
+    if col_stock_value and 'product_id' in df.columns:
+        with st.expander("📦 Product Performance (Click to Drill Down)", expanded=False):
+            product_performance = df.groupby('product_id')[col_stock_value].sum().sort_values(ascending=False)
+            
+            # Create clickable product data
+            product_df = product_performance.reset_index()
+            product_df.columns = ['Product ID', 'Stock Value']
+            
+            # Display product table with drill-down capability
+            for _, row in product_df.head(10).iterrows():
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    st.write(f"**{row['Product ID']}**")
+                with col2:
+                    if st.button(f"🔍 View Details", key=f"product_{row['Product ID']}"):
+                        handle_drill_down("product", row['Product ID'], row['Product ID'])
+            
+            if st.checkbox("Show All Products", key="show_all_products"):
+                st.dataframe(product_df, use_container_width=True)
+
+    # Cluster analysis with drill-down
+    if col_stock_value and 'cluster_id' in df.columns:
+        with st.expander("🎯 Cluster Analysis (Click to Drill Down)", expanded=False):
+            cluster_performance = df.groupby('cluster_id')[col_stock_value].sum().sort_values(ascending=False)
+            
+            # Create clickable cluster data
+            cluster_df = cluster_performance.reset_index()
+            cluster_df.columns = ['Cluster ID', 'Stock Value']
+            
+            # Display cluster table with drill-down capability
+            for _, row in cluster_df.head(10).iterrows():
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    st.write(f"**Cluster {row['Cluster ID']}**")
+                with col2:
+                    if st.button(f"🔍 View Details", key=f"cluster_{row['Cluster ID']}"):
+                        handle_drill_down("cluster", row['Cluster ID'], f"Cluster {row['Cluster ID']}")
+            
+            if st.checkbox("Show All Clusters", key="show_all_clusters"):
+                st.dataframe(cluster_df, use_container_width=True)
+
+    # ---------- DETAILED DRILL-DOWN VIEW ----------
+    if st.session_state.drill_down_path:
+        st.markdown(f"#### 🔍 Detailed View: {' → '.join(st.session_state.drill_down_path)}")
+        
+        # Filter data based on drill-down path
+        filtered_df = df.copy()
+        
+        # Apply filters based on drill-down path
+        if "Store" in st.session_state.drill_down_path and st.session_state.selected_store:
+            filtered_df = filtered_df[filtered_df['store_id'] == st.session_state.selected_store]
+            st.info(f"📊 Showing data for **Store {st.session_state.selected_store}**")
+            
+        elif "Product" in st.session_state.drill_down_path and st.session_state.selected_product:
+            filtered_df = filtered_df[filtered_df['product_id'] == st.session_state.selected_product]
+            st.info(f"📦 Showing data for **Product {st.session_state.selected_product}**")
+            
+        elif "Cluster" in st.session_state.drill_down_path and st.session_state.selected_cluster:
+            filtered_df = filtered_df[filtered_df['cluster_id'] == st.session_state.selected_cluster]
+            st.info(f"🎯 Showing data for **Cluster {st.session_state.selected_cluster}**")
+        
+        # Show detailed metrics for filtered data
+        if not filtered_df.empty:
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.metric("Filtered Records", f"{len(filtered_df):,}")
+                st.metric("Total Stock Value", f"${filtered_df[col_stock_value].sum():,.0f}" if col_stock_value else "N/A")
+            
+            with col2:
+                st.metric("Avg Fill Rate", f"{filtered_df[col_fill_rate].mean():.1f}%" if col_fill_rate else "N/A")
+                st.metric("Avg Stockout Rate", f"{filtered_df[col_stockout].mean():.1f}%" if col_stockout else "N/A")
+            
+            with col3:
+                st.metric("Unique Stores", f"{filtered_df['store_id'].nunique()}" if 'store_id' in filtered_df.columns else "N/A")
+                st.metric("Unique Products", f"{filtered_df['product_id'].nunique()}" if 'product_id' in filtered_df.columns else "N/A")
+                st.metric("Unique Clusters", f"{filtered_df['cluster_id'].nunique()}" if 'cluster_id' in filtered_df.columns else "N/A")
+            
+            # Detailed data table
+            st.markdown("#### 📋 Detailed Data")
+            st.dataframe(filtered_df.head(100), use_container_width=True)
+        else:
+            st.warning("No data available for selected drill-down path.")
 
     # ---------- ROW 1 ----------
     if col_stock_value:
@@ -829,32 +1004,70 @@ elif eda_option == "Promotion Effectiveness":
             unsafe_allow_html=True,
         )
 
-        col1, col2 = st.columns(2)
-        with col1:
-            top = transfer_metrics.sort_values(transfer_cost_col, ascending=False).head(15)
-            fig, ax = plt.subplots(figsize=(8, 4))
-            ax.bar(top.index.astype(str), top[transfer_cost_col])
-            ax.set_title("Top Transfers by Cost")
-            ax.tick_params(axis="x", rotation=45)
-            ax.grid(axis="y", linestyle="--", alpha=0.3)
-            st.pyplot(fig)
-            plt.close(fig)
-
-        with col2:
-            if transfer_cost_col and service_gain_col:
+        # ---------- DRILL-DOWN TRANSFERS ----------
+        if st.session_state.drill_down_path and "Transfer" in st.session_state.drill_down_path:
+            st.markdown(f"#### 🚚 Transfer Details: {' → '.join(st.session_state.drill_down_path)}")
+            
+            # Filter transfers based on drill-down path
+            filtered_transfers = transfer_metrics.copy()
+            if st.session_state.selected_store:
+                filtered_transfers = df[df['from_store_id'] == st.session_state.selected_store]
+                st.info(f"📊 Showing transfers from **Store {st.session_state.selected_store}**")
+            
+            elif st.session_state.selected_cluster:
+                # Filter by cluster if cluster data available
+                if 'cluster_id' in df.columns:
+                    filtered_transfers = df[df['cluster_id'] == st.session_state.selected_cluster]
+                    st.info(f"🎯 Showing transfers for **Cluster {st.session_state.selected_cluster}**")
+                else:
+                    filtered_transfers = transfer_metrics
+                    st.info(f"🚚 Showing all transfers")
+            
+            # Transfer details table
+            st.dataframe(filtered_transfers.head(20), use_container_width=True)
+            
+            # Transfer performance charts
+            col1, col2 = st.columns(2)
+            with col1:
+                top_transfers = filtered_transfers.sort_values(transfer_cost_col, ascending=False).head(15)
                 fig, ax = plt.subplots(figsize=(8, 4))
-                ax.scatter(transfer_metrics[transfer_cost_col], transfer_metrics[service_gain_col], alpha=0.7)
-                ax.set_xlabel("Transfer Cost")
-                ax.set_ylabel("Service Gain %")
-                ax.set_title("Transfer Cost vs Service Gain")
-                ax.grid(True, linestyle="--", alpha=0.3)
+                ax.bar(range(len(top_transfers)), top_transfers[transfer_cost_col])
+                ax.set_title("Top Transfers by Cost")
+                ax.set_xlabel("Transfer ID")
+                ax.set_ylabel("Cost ($)")
+                ax.tick_params(axis="x", rotation=45)
+                ax.grid(axis="y", linestyle="--", alpha=0.3)
                 st.pyplot(fig)
                 plt.close(fig)
-            elif transfer_cost_col and transfer_qty_col:
+
+            with col2:
+                if service_gain_col and transfer_qty_col:
+                    fig, ax = plt.subplots(figsize=(8, 4))
+                    ax.scatter(filtered_transfers[transfer_cost_col], filtered_transfers[service_gain_col], alpha=0.7)
+                    ax.set_xlabel("Transfer Cost")
+                    ax.set_ylabel("Service Gain (%)")
+                    ax.set_title("Transfer Cost vs Service Gain")
+                    ax.grid(True, linestyle="--", alpha=0.3)
+                    st.pyplot(fig)
+                    plt.close(fig)
+                elif transfer_cost_col and transfer_qty_col:
+                    fig, ax = plt.subplots(figsize=(8, 4))
+                    ax.scatter(transfer_metrics[transfer_cost_col], transfer_metrics[transfer_qty_col], alpha=0.7)
+                    ax.set_xlabel("Transfer Cost")
+                    ax.set_ylabel("Transfer Quantity")
+                    ax.set_title("Transfer Cost vs Quantity")
+                    ax.grid(True, linestyle="--", alpha=0.3)
+                    st.pyplot(fig)
+                    plt.close(fig)
+        else:
+            col1, col2 = st.columns(2)
+            with col1:
+                top = transfer_metrics.sort_values(transfer_cost_col, ascending=False).head(15)
                 fig, ax = plt.subplots(figsize=(8, 4))
-                ax.scatter(transfer_metrics[transfer_cost_col], transfer_metrics[transfer_qty_col], alpha=0.7)
-                ax.set_xlabel("Transfer Cost")
-                ax.set_ylabel("Transfer Quantity")
+                ax.bar(top.index.astype(str), top[transfer_cost_col])
+                ax.set_title("Top Transfers by Cost")
+                ax.tick_params(axis="x", rotation=45)
+                ax.grid(axis="y", linestyle="--", alpha=0.3)
                 ax.set_title("Transfer Cost vs Quantity")
                 ax.grid(True, linestyle="--", alpha=0.3)
                 st.pyplot(fig)
@@ -1529,10 +1742,32 @@ elif eda_option == "Summary Report":
             transfer_total = df_inventory[inventory_transfer_col].replace([np.inf, -np.inf], np.nan).dropna().sum()
             st.info(f"**Total transfers:** {transfer_total:,.0f}")
 
+        # Initialize variables to avoid NameError
+        store_stock = None
+        product_stock = None
+        
+        if inventory_store_col:
+            store_stock = (
+                df_inventory.groupby(inventory_store_col)[stock_metric_col]
+                .sum()
+                .replace([np.inf, -np.inf], np.nan)
+                .dropna()
+                .sort_values(ascending=False)
+            )
+        
+        if inventory_product_col:
+            product_stock = (
+                df_inventory.groupby(inventory_product_col)[stock_metric_col]
+                .sum()
+                .replace([np.inf, -np.inf], np.nan)
+                .dropna()
+                .sort_values(ascending=False)
+            )
+
         colA, colB = st.columns(2)
 
         with colA:
-            if inventory_store_col:
+            if inventory_store_col and store_stock is not None:
                 st.markdown("#### Top Stores by Stock Value")
                 top_locations = store_stock.head(15).reset_index()
                 top_locations.columns = ["Store", "Stock Value"]
@@ -1541,7 +1776,7 @@ elif eda_option == "Summary Report":
                 st.info("No store column found for store-level summary.")
 
         with colB:
-            if inventory_product_col:
+            if inventory_product_col and product_stock is not None:
                 st.markdown("#### Top Products by Stock Value")
                 top_products = product_stock.head(15).reset_index()
                 top_products.columns = ["Product", "Stock Value"]
