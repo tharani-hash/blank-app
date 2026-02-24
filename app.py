@@ -427,8 +427,9 @@ st.markdown(
 # MYSQL LOADER FUNCTION
 @st.cache_data
 # CSV LOADER FUNCTION (DEPLOYMENT SAFE)
-@st.cache_data
+@st.cache_data(experimental_allow_widgets=True)
 def load_data():
+    """Load data with cache clearing for fresh data"""
     return pd.read_csv("FACT_SUPPLY_CHAIN_FINAL.csv")
 
 
@@ -507,10 +508,42 @@ st.markdown(
 if "df" not in st.session_state:
     st.session_state.df = None
 
-# Load Button
-if st.button("Load Data"):
-    st.session_state.df = load_data()
-    st.success("Data loaded successfully!")
+# Add cache clearing and data info
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    if st.button("🔄 Clear Cache & Reload Data"):
+        # Clear all cache
+        st.cache_data.clear()
+        # Clear session state
+        for key in list(st.session_state.keys()):
+            del st.session_state[key]
+        st.success("✅ Cache cleared and session reset!")
+        st.rerun()
+
+with col2:
+    # Show data file info
+    try:
+        import os
+        file_path = "FACT_SUPPLY_CHAIN_FINAL.csv"
+        if os.path.exists(file_path):
+            file_size = os.path.getsize(file_path)
+            file_mtime = os.path.getmtime(file_path)
+            import datetime
+            mtime = datetime.datetime.fromtimestamp(file_mtime)
+            st.metric("📁 Data File", f"{file_size:,} bytes")
+            st.metric("🕒 Last Modified", mtime.strftime("%Y-%m-%d %H:%M"))
+        else:
+            st.error("❌ Data file not found!")
+    except:
+        st.error("❌ Error checking data file")
+
+with col3:
+    # Load Button
+    if st.button("📊 Load Data"):
+        st.session_state.df = load_data()
+        st.success(f"✅ Data loaded successfully! Shape: {st.session_state.df.shape}")
+        st.info(f"🕒 Loaded at: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     
 
 
@@ -524,6 +557,19 @@ if df is not None:
     unsafe_allow_html=True
 )
 
+    # Add debugging for data loading
+    st.write("🔍 **Data Loading Debug:**")
+    st.write(f"- df in session_state: {'df' in st.session_state}")
+    st.write(f"- df type: {type(st.session_state.df) if 'df' in st.session_state else 'None'}")
+    if 'df' in st.session_state and st.session_state.df is not None:
+        st.write(f"- df shape: {st.session_state.df.shape}")
+        st.write(f"- df columns: {list(st.session_state.df.columns)}")
+        st.write(f"- df empty: {st.session_state.df.empty}")
+    else:
+        st.write("❌ No dataframe in session_state")
+    
+    st.write("")
+
     # Get the HTML table string and render it
     table_html = render_html_table(
         df.head(20),
@@ -531,7 +577,6 @@ if df is not None:
     )
     st.markdown(table_html, unsafe_allow_html=True)
     
-
     st.info(f"**Shape:** {df.shape[0]} rows × {df.shape[1]} columns")
 else:
     st.info("Click the button above to load the dataset.")
@@ -1408,17 +1453,6 @@ alt.themes.enable("transparent_theme")
 # ============================================================
 # STEP 3 – EDA (LOCKED UNTIL PREPROCESSING)
 # ============================================================
-
-# Add debugging for preprocessing status
-st.write("🔍 **Preprocessing Status Check:**")
-st.write(f"- preprocessing_completed: {st.session_state.get('preprocessing_completed', False)}")
-st.write(f"- df in session_state: {'df' in st.session_state}")
-st.write(f"- df shape: {st.session_state.get('df', 'Not found').shape if 'df' in st.session_state else 'Not found'}")
-st.write("")
-
-if not st.session_state.preprocessing_completed:
-    st.info("ℹ Please apply at least one data pre-processing step to unlock EDA.")
-    st.stop()
 
 
 df = st.session_state.get("df", None)
