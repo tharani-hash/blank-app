@@ -36,16 +36,16 @@ def render_html_table(df, title=None, max_height=300):
     # Data rows with alternating colors - displayed horizontally
     html_table += '<tbody>'
     for i, (_, row) in enumerate(df.iterrows()):
-        bg_color = '#f8f9fa' if i % 2 == 0 else '#ffffff'
-        html_table += f'<tr style="background-color: {bg_color}; transition: all 0.3s ease;" onmouseover="this.style.backgroundColor=\'#e8f4fd\'" onmouseout="this.style.backgroundColor=\'{bg_color}\'">'
+        bg_color = '#E6F3FF' if i % 2 == 0 else '#F0F8FF'  # Blue theme colors
+        html_table += f'<tr style="background-color: {bg_color}; transition: all 0.3s ease;" onmouseover="this.style.backgroundColor=\'#B8D4FF\'" onmouseout="this.style.backgroundColor=\'{bg_color}\'">'
         for val in row:
-            html_table += f'<td style="padding: 10px 15px; border-bottom: 1px solid #e8eef5; color: #2c3e50; font-size: 12px; text-align: left;">{val}</td>'
+            html_table += f'<td style="padding: 10px 15px; border-bottom: 1px solid #B8D4FF; color: #0B2C5D; font-size: 12px; text-align: left;">{val}</td>'
         html_table += '</tr>'
     html_table += '</tbody></table>'
     
     # Wrap in container with scroll
     full_html = f'''
-    <div style="max-height: {max_height}px; overflow-y: auto; border: 2px solid #2F75B5; border-radius: 8px; background: white; padding: 0;">
+    <div style="max-height: {max_height}px; overflow-y: auto; border: 2px solid #2F75B5; border-radius: 8px; background: #E6F3FF; padding: 0;">
         {html_table}
     </div>
     
@@ -124,7 +124,7 @@ st.markdown("""
 
 /* App background */
 .stApp {
-    background-color: #FFFFFF;
+    background-color: #F0F8FF;  /* Light blue background */
     margin: 0;
     padding: 0;
 }
@@ -1408,6 +1408,13 @@ alt.themes.enable("transparent_theme")
 # ============================================================
 # STEP 3 – EDA (LOCKED UNTIL PREPROCESSING)
 # ============================================================
+
+# Add debugging for preprocessing status
+st.write("🔍 **Preprocessing Status Check:**")
+st.write(f"- preprocessing_completed: {st.session_state.get('preprocessing_completed', False)}")
+st.write(f"- df in session_state: {'df' in st.session_state}")
+st.write(f"- df shape: {st.session_state.get('df', 'Not found').shape if 'df' in st.session_state else 'Not found'}")
+st.write("")
 
 if not st.session_state.preprocessing_completed:
     st.info("ℹ Please apply at least one data pre-processing step to unlock EDA.")
