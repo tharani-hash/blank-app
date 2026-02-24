@@ -426,8 +426,6 @@ st.markdown(
 
 # MYSQL LOADER FUNCTION
 @st.cache_data
-# CSV LOADER FUNCTION (DEPLOYMENT SAFE)
-@st.cache_data(experimental_allow_widgets=True)
 def load_data():
     """Load data with cache clearing for fresh data"""
     return pd.read_csv("FACT_SUPPLY_CHAIN_FINAL.csv")
