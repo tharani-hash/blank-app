@@ -506,61 +506,24 @@ st.markdown(
 if "df" not in st.session_state:
     st.session_state.df = None
 
-# Add cache clearing and data info
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    if st.button("🔄 Clear Cache & Reload Data"):
-        # Clear all cache
-        st.cache_data.clear()
-        # Clear session state
-        for key in list(st.session_state.keys()):
-            del st.session_state[key]
-        st.success("✅ Cache cleared and session reset!")
-        st.rerun()
-
-with col2:
-    # Show data file info
-    try:
-        import os
-        file_path = "FACT_SUPPLY_CHAIN_FINAL.csv"
-        if os.path.exists(file_path):
-            file_size = os.path.getsize(file_path)
-            file_mtime = os.path.getmtime(file_path)
-            import datetime
-            mtime = datetime.datetime.fromtimestamp(file_mtime)
-            st.metric("📁 Data File", f"{file_size:,} bytes")
-            st.metric("🕒 Last Modified", mtime.strftime("%Y-%m-%d %H:%M"))
-        else:
-            st.error("❌ Data file not found!")
-    except:
-        st.error("❌ Error checking data file")
-
-with col3:
-    # Load Button
-    if st.button("📊 Load Data"):
-        st.session_state.df = load_data()
-        st.success(f"✅ Data loaded successfully! Shape: {st.session_state.df.shape}")
-        st.info(f"🕒 Loaded at: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    
-
-
+# Load Button
+if st.button("📊 Load Data"):
+    st.session_state.df = load_data()
+    st.success("✅ Data loaded successfully!")
 
 # Show preview if loaded
 df = st.session_state.df
 
 if df is not None:
     st.markdown(
-    "<h3 style='color:#000000;'>Data Preview</h3>",
-    unsafe_allow_html=True
-)
+        "<h3 style='color:#000000;'>Data Preview</h3>",
+        unsafe_allow_html=True
+    )
 
     render_html_table(
         df.head(20),
         max_height=260
     )
-    
-    st.info(f"**Shape:** {df.shape[0]} rows × {df.shape[1]} columns")
 else:
     st.info("Click the button above to load the dataset.")
 # ============================================================
@@ -1891,17 +1854,125 @@ elif eda_option == "Inventory Overview":
             <b>Stock Value By Time</b>
         </div>
         """,
-        unsafe_allow_html=True
+            unsafe_allow_html=True
     )
 
-        # Aggregate stock value by date
-        stock_time = (
-            df.groupby('date_id')[col_stock_value]
-            .sum()
-            .sort_index()
+        # Add time level selection
+        time_level = st.selectbox(
+            "📅 Select Time Level:",
+            options=["Year", "Quarter", "Month", "Week", "Day"],
+            key="time_level_select"
         )
 
-        st.bar_chart(stock_time)
+        # Add drill-down navigation
+        if "time_drill_path" not in st.session_state:
+            st.session_state.time_drill_path = []
+        
+        current_path = st.session_state.time_drill_path
+
+        # Show current path and reset button
+        if current_path:
+            path_display = " → ".join(current_path)
+            st.markdown(
+                f"""
+                <div style="
+                    background-color:#E6F3FF;
+                    padding:10px 15px;
+                    border-radius:8px;
+                    border-left:4px solid #2F75B5;
+                    margin:10px 0;
+                    font-size:14px;
+                    color:#0B2C5D;
+                ">
+                    <b>📍 Current Path:</b> {path_display}
+                    <button onclick="parent.location.reload()" style="
+                        background:#2F75B5;
+                        color:white;
+                        border:none;
+                        padding:6px 12px;
+                        border-radius:4px;
+                        cursor:pointer;
+                        margin-left:10px;
+                    ">🔄 Reset</button>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+        # Aggregate and filter data based on time level
+        df_time = df.copy()
+        
+        if time_level == "Year":
+            # Extract year from date_id
+            df_time['year'] = pd.to_datetime(df_time['date_id'], errors='coerce').dt.year
+            time_col = 'year'
+            time_label = 'Year'
+            
+        elif time_level == "Quarter":
+            # Extract quarter from date_id
+            df_time['quarter'] = "Q" + pd.to_datetime(df_time['date_id'], errors='coerce').dt.quarter.astype(str)
+            time_col = 'quarter'
+            time_label = 'Quarter'
+            
+        elif time_level == "Month":
+            # Extract month from date_id
+            df_time['month'] = pd.to_datetime(df_time['date_id'], errors='coerce').dt.month_name()
+            time_col = 'month'
+            time_label = 'Month'
+            
+        elif time_level == "Week":
+            # Extract week from date_id (assuming ISO week)
+            df_time['week'] = "Week " + pd.to_datetime(df_time['date_id'], errors='coerce').dt.isocalendar().week.astype(str)
+            time_col = 'week'
+            time_label = 'Week'
+            
+        else:  # Day level
+            df_time['day'] = pd.to_datetime(df_time['date_id'], errors='coerce').dt.day
+            time_col = 'day'
+            time_label = 'Day'
+
+        # Aggregate by selected time level
+        time_agg = df_time.groupby(time_col)[col_stock_value].sum().sort_index()
+
+        # Display chart
+        st.markdown(f"### Stock Value by {time_label}")
+        st.bar_chart(time_agg)
+
+        # Add drill-down options
+        st.markdown("#### 📊 Drill-Down Options")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            if time_level != "Year":
+                if st.button(f"📅 View by Year"):
+                    st.session_state.time_drill_path = ["Year"]
+                    st.rerun()
+            else:
+                st.write("📅 Currently viewing by Year")
+        
+        with col2:
+            if time_level != "Quarter":
+                if st.button(f"📊 View by Quarter"):
+                    st.session_state.time_drill_path = ["Quarter"]
+                    st.rerun()
+            else:
+                st.write("📊 Currently viewing by Quarter")
+        
+        with col3:
+            if time_level != "Month":
+                if st.button(f"📅 View by Month"):
+                    st.session_state.time_drill_path = ["Month"]
+                    st.rerun()
+            else:
+                st.write("📅 Currently viewing by Month")
+
+        # Show detailed data table
+        st.markdown("#### 📋 Detailed Data")
+        st.dataframe(
+            time_agg.reset_index().head(20),
+            use_container_width=True
+        )
 
     # ---------- STORE ANALYSIS ----------
     if 'store_id' in df.columns and col_stock_value:
