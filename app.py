@@ -5,9 +5,73 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import io
 import numpy as np
-from utils.html_table import render_html_table
-import streamlit as st
 import altair as alt
+
+# ============================================================================
+# HTML TABLE RENDERING FUNCTION
+# ============================================================================
+
+def render_html_table(df, title=None, max_height=300):
+    """
+    Render a beautiful, professional HTML table with white headers and horizontal rows.
+    
+    Args:
+        df: DataFrame to display
+        title: Optional title for the table
+        max_height: Maximum height in pixels
+    """
+    if df.empty:
+        st.info("No data to display")
+        return ""
+    
+    # Build HTML table manually for better control
+    html_table = '<table style="width: 100%; border-collapse: collapse; font-family: Arial, sans-serif; border: 2px solid #2F75B5; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 12px rgba(47, 117, 181, 0.15);">'
+    
+    # Header row with blue background and WHITE text
+    html_table += '<thead><tr style="background: linear-gradient(135deg, #2F75B5, #1F5F99); color: white; font-weight: bold; text-align: left;">'
+    for col in df.columns:
+        html_table += f'<th style="padding: 12px 15px; font-size: 13px; font-weight: bold; border-bottom: 2px solid #1a4d80; color: white; white-space: nowrap;">{col}</th>'
+    html_table += '</tr></thead>'
+    
+    # Data rows with alternating colors - displayed horizontally
+    html_table += '<tbody>'
+    for i, (_, row) in enumerate(df.iterrows()):
+        bg_color = '#f8f9fa' if i % 2 == 0 else '#ffffff'
+        html_table += f'<tr style="background-color: {bg_color}; transition: all 0.3s ease;" onmouseover="this.style.backgroundColor=\'#e8f4fd\'" onmouseout="this.style.backgroundColor=\'{bg_color}\'">'
+        for val in row:
+            html_table += f'<td style="padding: 10px 15px; border-bottom: 1px solid #e8eef5; color: #2c3e50; font-size: 12px; text-align: left;">{val}</td>'
+        html_table += '</tr>'
+    html_table += '</tbody></table>'
+    
+    # Wrap in container with scroll
+    full_html = f'''
+    <div style="max-height: {max_height}px; overflow-y: auto; border: 2px solid #2F75B5; border-radius: 8px; background: white; padding: 0;">
+        {html_table}
+    </div>
+    
+    <style>
+        /* Custom scrollbar */
+        div::-webkit-scrollbar {{
+            width: 10px;
+        }}
+        div::-webkit-scrollbar-track {{
+            background: #f1f1f1;
+            border-radius: 5px;
+        }}
+        div::-webkit-scrollbar-thumb {{
+            background: #2F75B5;
+            border-radius: 5px;
+        }}
+        div::-webkit-scrollbar-thumb:hover {{
+            background: #1F5F99;
+        }}
+    </style>
+    '''
+    
+    if title:
+        full_html = f"### 📊 {title}" + full_html
+    
+    return full_html
 
 
 
