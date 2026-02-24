@@ -73,6 +73,48 @@ def render_html_table(df, title=None, max_height=300):
     
     return full_html
 
+# ============================================================================
+# SAFE COLUMN MAPPING FUNCTION
+# ============================================================================
+
+def map_col(candidates):
+    """Return the first column that exists in the dataframe from a list of candidates"""
+    for c in candidates:
+        if c in df.columns:
+            return c
+    return None
+
+# ============================================================================
+# SAFE COLUMN DEFINITIONS
+# ============================================================================
+
+def get_safe_columns():
+    """Get column names safely, checking if they exist in the dataframe"""
+    columns = {}
+    
+    # Product column mapping
+    columns['product'] = map_col(['product_id', 'Product_ID', 'product', 'Product'])
+    
+    # Quantity column mapping  
+    columns['quantity'] = map_col(['quantity_sold', 'Quantity', 'quantity', 'qty_sold', 'Qty'])
+    
+    # Revenue column mapping
+    columns['revenue'] = map_col(['total_sales_amount', 'Sales_Amount', 'revenue', 'Revenue', 'sales'])
+    
+    # Profit column mapping
+    columns['profit'] = map_col(['profit_value', 'Profit', 'profit', 'margin', 'Profit_Margin'])
+    
+    # Store column mapping
+    columns['store'] = map_col(['store_id', 'Store_ID', 'store', 'Store'])
+    
+    # Customer column mapping
+    columns['customer'] = map_col(['customer_id', 'Customer_ID', 'customer', 'Customer'])
+    
+    # Channel column mapping
+    columns['channel'] = map_col(['channel_id', 'Channel_ID', 'channel', 'Channel'])
+    
+    return columns
+
 
 
 st.set_page_config(page_title="AI-Driven Stock Rebalancing", layout="wide")
@@ -2075,34 +2117,66 @@ elif eda_option == "Product-Level Analysis":
     # =========================================================
     # ENSURE PRODUCT METRICS & TOP PRODUCTS ARE DEFINED
     # =========================================================
-    col_product = "product_id"
-    col_qty     = "quantity_sold"
-    col_revenue = "total_sales_amount"
-    col_profit  = "profit_value"
+    
+    # Get safe column mappings
+    safe_cols = get_safe_columns()
+    
+    # Check if required columns exist
+    if not safe_cols['product']:
+        st.error("❌ Product column not found. Available columns: " + ", ".join(df.columns))
+        st.stop()
+    
+    # Use safe column mapping with fallbacks
+    col_product = safe_cols['product']
+    col_qty = safe_cols['quantity'] or 'quantity_sold'  # fallback
+    col_revenue = safe_cols['revenue'] or 'total_sales_amount'  # fallback  
+    col_profit = safe_cols['profit'] or 'profit_value'  # fallback
+    
+    # Only proceed if columns exist
+    available_cols = [col for col in [col_qty, col_revenue, col_profit] if col in df.columns]
+    
+    if len(available_cols) == 0:
+        st.warning("⚠️ No numeric columns found for aggregation. Skipping product metrics.")
+        product_metrics = None
+    else:
+        # Create aggregation dictionary only with available columns
+        agg_dict = {}
+        if col_qty in df.columns:
+            agg_dict['total_quantity_sold'] = (col_qty, "sum")
+        if col_revenue in df.columns:
+            agg_dict['total_revenue'] = (col_revenue, "sum")
+        if col_profit in df.columns:
+            agg_dict['total_profit'] = (col_profit, "sum")
+        
+        if agg_dict:
+            product_metrics = (
+                df.groupby(col_product)
+                .agg(**agg_dict)
+                .sort_values(list(agg_dict.keys())[0], ascending=False)  # Sort by first available metric
+            )
+        else:
+            product_metrics = None
 
-    product_metrics = (
-        df.groupby(col_product)
-        .agg(
-            total_quantity_sold=(col_qty, "sum"),
-            total_revenue=(col_revenue, "sum"),
-            total_profit=(col_profit, "sum")
-        )
-        .sort_values("total_revenue", ascending=False)
-    )
+    # Only proceed with product analysis if we have metrics
+    if product_metrics is not None:
+        TOP_N = 20
+        top_products = product_metrics.head(TOP_N)
 
-    TOP_N = 20
-    top_products = product_metrics.head(TOP_N)
-
-    # Products to label in scatter (same logic you already had)
-    top_demand = product_metrics.sort_values(
-        "total_quantity_sold", ascending=False
-    ).head(5)
-
-    top_profit = product_metrics.sort_values(
-        "total_profit", ascending=False
-    ).head(5)
-
-    label_products = pd.concat([top_demand, top_profit]).drop_duplicates()
+        # Products to label in scatter (only if columns exist)
+        label_products = pd.DataFrame()
+        
+        if 'total_quantity_sold' in product_metrics.columns:
+            top_demand = product_metrics.sort_values("total_quantity_sold", ascending=False).head(5)
+            label_products = pd.concat([label_products, top_demand])
+        
+        if 'total_profit' in product_metrics.columns:
+            top_profit = product_metrics.sort_values("total_profit", ascending=False).head(5)
+            label_products = pd.concat([label_products, top_profit])
+        
+        label_products = label_products.drop_duplicates() if not label_products.empty else None
+    else:
+        top_products = pd.DataFrame()
+        label_products = None
 
 
     # =========================================================
