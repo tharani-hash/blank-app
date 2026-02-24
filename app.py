@@ -555,25 +555,10 @@ if df is not None:
     unsafe_allow_html=True
 )
 
-    # Add debugging for data loading
-    st.write("🔍 **Data Loading Debug:**")
-    st.write(f"- df in session_state: {'df' in st.session_state}")
-    st.write(f"- df type: {type(st.session_state.df) if 'df' in st.session_state else 'None'}")
-    if 'df' in st.session_state and st.session_state.df is not None:
-        st.write(f"- df shape: {st.session_state.df.shape}")
-        st.write(f"- df columns: {list(st.session_state.df.columns)}")
-        st.write(f"- df empty: {st.session_state.df.empty}")
-    else:
-        st.write("❌ No dataframe in session_state")
-    
-    st.write("")
-
-    # Get the HTML table string and render it
-    table_html = render_html_table(
+    render_html_table(
         df.head(20),
         max_height=260
     )
-    st.markdown(table_html, unsafe_allow_html=True)
     
     st.info(f"**Shape:** {df.shape[0]} rows × {df.shape[1]} columns")
 else:
@@ -1480,71 +1465,39 @@ st.write("")
 st.info(f"Dataset Loaded: **{df.shape[0]} rows × {df.shape[1]} columns**")
 st.write("")
 
-# Add debugging section for column detection
-with st.expander("🔍 Column Detection & Debugging Info"):
-    st.write("**Column Mapping Results:**")
+dup_count = df.duplicated().sum()
+total_rows = len(df)
+dup_percentage = (dup_count / total_rows * 100) if total_rows > 0 else 0
     
-    safe_cols = get_safe_columns()
+col1, col2, col3 = st.columns(3)
     
-    col_mapping_info = pd.DataFrame({
-        'Data Type': ['Product', 'Quantity', 'Revenue', 'Profit', 'Store', 'Customer', 'Channel'],
-        'Expected Column': ['product_id', 'quantity_sold', 'total_sales_amount', 'profit_value', 'store_id', 'customer_id', 'channel_id'],
-        'Found Column': [safe_cols['product'], safe_cols['quantity'], safe_cols['revenue'], safe_cols['profit'], safe_cols['store'], safe_cols['customer'], safe_cols['channel']],
-        'Status': ['✅ Found' if safe_cols['product'] else '❌ Missing',
-                   '✅ Found' if safe_cols['quantity'] else '❌ Missing', 
-                   '✅ Found' if safe_cols['revenue'] else '❌ Missing',
-                   '✅ Found' if safe_cols['profit'] else '❌ Missing',
-                   '✅ Found' if safe_cols['store'] else '❌ Missing',
-                   '✅ Found' if safe_cols['customer'] else '❌ Missing',
-                   '✅ Found' if safe_cols['channel'] else '❌ Missing']
-    })
+with col1:
+    st.metric("Total Rows", f"{total_rows:,}")
+with col2:
+    st.metric("Duplicate Rows", f"{dup_count:,}")
+with col3:
+    st.metric("Duplicate %", f"{dup_percentage:.2f}%")
     
-    st.dataframe(col_mapping_info)
+if dup_count > 0:
+    st.warning(f"⚠️ Found {dup_count} duplicate rows ({dup_percentage:.2f}% of dataset)")
     
-    st.write("**All Available Columns:**")
-    all_cols_df = pd.DataFrame({
-        'Column Name': df.columns.tolist(),
-        'Data Type': df.dtypes.astype(str).values.tolist(),
-        'Non-Null Count': df.count().values.tolist()
-    })
-    st.dataframe(all_cols_df)
-    
-    st.write("**Duplicate Analysis:**")
-    dup_count = df.duplicated().sum()
-    total_rows = len(df)
-    dup_percentage = (dup_count / total_rows * 100) if total_rows > 0 else 0
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.metric("Total Rows", f"{total_rows:,}")
-    with col2:
-        st.metric("Duplicate Rows", f"{dup_count:,}")
-    with col3:
-        st.metric("Duplicate %", f"{dup_percentage:.2f}%")
-    
-    if dup_count > 0:
-        st.warning(f"⚠️ Found {dup_count} duplicate rows ({dup_percentage:.2f}% of dataset)")
+    with st.expander("📋 Show Duplicate Rows Sample"):
+        dup_sample = df[df.duplicated()].head(10)
+        st.dataframe(dup_sample)
+            
+        st.write("**Duplicate Columns Analysis:**")
+        dup_cols_analysis = []
+        for col in df.columns:
+            col_dup_count = df.duplicated(subset=[col]).sum()
+            if col_dup_count > 0:
+                dup_cols_analysis.append({
+                    'Column': col,
+                    'Duplicates': col_dup_count,
+                    'Type': 'Exact Duplicates' if col_dup_count == dup_count else 'Partial Duplicates'
+                })
         
-        with st.expander("📋 Show Duplicate Rows Sample"):
-            dup_sample = df[df.duplicated()].head(10)
-            st.dataframe(dup_sample)
-            
-            st.write("**Duplicate Columns Analysis:**")
-            dup_cols_analysis = []
-            for col in df.columns:
-                col_dup_count = df.duplicated(subset=[col]).sum()
-                if col_dup_count > 0:
-                    dup_cols_analysis.append({
-                        'Column': col,
-                        'Duplicates': col_dup_count,
-                        'Type': 'Exact Duplicates' if col_dup_count == dup_count else 'Partial Duplicates'
-                    })
-            
-            if dup_cols_analysis:
-                st.dataframe(pd.DataFrame(dup_cols_analysis))
-    else:
-        st.success("✅ No duplicate rows found in dataset")
+        if dup_cols_analysis:
+            st.dataframe(pd.DataFrame(dup_cols_analysis))
 
 st.write("")
 
@@ -1622,21 +1575,16 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-
-
 if "eda_option" not in st.session_state:
     st.session_state.eda_option = None
 
-
 def nav_button(label, value):
-    
     """Instant active highlight + no size change"""
     if st.session_state.eda_option == value:
         st.markdown(
             f"""
             <div style="
-                background-color:#4F97EE
-;
+                background-color:#4F97EE;
                 color:white;
                 padding:14px;
                 border-radius:10px;
@@ -1652,42 +1600,11 @@ def nav_button(label, value):
     else:
         if st.button(label, use_container_width=True):
             st.session_state.eda_option = value
-            st.rerun() 
+            st.rerun()
 
-with st.expander(" ", expanded=True):
-    row1 = st.columns(5)
-    row2 = st.columns(4)
-
-    with row1[0]:
-        nav_button("Data Quality Overview", "Data Quality Overview")
-    with row1[1]:
-        nav_button("Inventory Overview", "Inventory Overview")
-    with row1[2]:
-        nav_button("Transfer Effectiveness", "Transfer Effectiveness")
-    with row1[3]:
-        nav_button("Product-Level Analysis", "Product-Level Analysis")
-    with row1[4]:
-        nav_button("Route-Level Analysis", "Route-Level Analysis")
-
-    with row2[0]:
-        nav_button("Model Impact Analysis", "Model Impact Analysis")
-    with row2[1]:
-        nav_button("Store-Level Analysis", "Store-Level Analysis")
-    with row2[2]:
-        nav_button("Cluster Analysis", "Cluster Analysis")
-    with row2[3]:
-        nav_button("Summary Report", "Summary Report")
-
-
-eda_option = st.session_state.eda_option
-st.markdown(
-    "<div style='margin-top:6px'></div>",
-    unsafe_allow_html=True
-)
-
-if eda_option is None:
-    st.info("Select an analysis to view insights.")
-    st.stop()
+# ============================================================
+# EDA ROUTER (⚠️ DO NOT BREAK THIS STRUCTURE)
+# ============================================================
 
 
 # ============================================================
@@ -1817,7 +1734,233 @@ if eda_option == "Data Quality Overview":
     )
 
 
+elif eda_option == "Inventory Overview":
+    # Column mapping for inventory data
+    col_stock_value = None
+    col_on_hand = None
+    col_fill_rate = None
+    col_stockout = None
+    col_turnover = None
+    
+    # Find stock value column
+    for col in ['stock_value', 'inventory_value', 'total_stock_value']:
+        if col in df.columns:
+            col_stock_value = col
+            break
+    
+    # Find on hand quantity column
+    for col in ['on_hand_qty', 'on_hand_quantity', 'stock_on_hand']:
+        if col in df.columns:
+            col_on_hand = col
+            break
+    
+    # Find fill rate column
+    for col in ['fill_rate_pct', 'fill_rate', 'fill_percentage']:
+        if col in df.columns:
+            col_fill_rate = col
+            break
+    
+    # Find stockout percentage column
+    for col in ['stockout_pct', 'stockout_percentage', 'out_of_stock_pct']:
+        if col in df.columns:
+            col_stockout = col
+            break
+    
+    # Find inventory turnover column
+    for col in ['inventory_turnover', 'turnover', 'stock_turnover']:
+        if col in df.columns:
+            col_turnover = col
+            break
+
+    st.markdown(
+    """
+    <div style="
+        background-color:#2F75B5;
+        padding:28px;
+        border-radius:12px;
+        color:white;
+        font-size:16px;
+        line-height:1.6;
+        margin-bottom:20px;
+    ">
+    <b>What this section does:</b>
+    <ul>
+        <li>Analyzes inventory performance at the product (SKU) level</li>
+        <li>Highlights top products by stock value and quantity</li>
+        <li>Shows inventory concentration across products</li>
+    </ul>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+    # ---------- ROW 1 ----------
+    st.markdown(
+        """
+        <div class="summary-grid">
+            <div class="summary-card">
+                <div class="summary-title">Total Stock Value</div>
+                <div class="summary-value">{}</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-title">Average Stock Value</div>
+                <div class="summary-value">{}</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-title">Maximum Stock Value</div>
+                <div class="summary-value">{}</div>
+            </div>
+        </div>
+        """.format(
+            f"${df[col_stock_value].sum():,.2f}" if col_stock_value else "NA",
+            f"${df[col_stock_value].mean():,.2f}" if col_stock_value else "NA",
+            f"${df[col_stock_value].max():,.2f}" if col_stock_value else "NA",
+        ),
+        unsafe_allow_html=True
+        )
+
+        # ---------- ROW 2 ----------
+    st.markdown(
+        """
+        <div class="summary-grid">
+            <div class="summary-card">
+                <div class="summary-title">Total On Hand Quantity</div>
+                <div class="summary-value">{}</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-title">Average On Hand Quantity</div>
+                <div class="summary-value">{}</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-title">Total Products</div>
+                <div class="summary-value">{}</div>
+            </div>
+        </div>
+        """.format(
+            f"{df[col_on_hand].sum():,}" if col_on_hand else "NA",
+            f"{df[col_on_hand].mean():.2f}" if col_on_hand else "NA",
+            f"{df['product_id'].nunique():,}" if 'product_id' in df.columns else "NA",
+        ),
+        unsafe_allow_html=True
+    )
+
+    # ---------- TIME SERIES ANALYSIS ----------
+    if 'date_id' in df.columns and col_stock_value:
+        st.markdown(
+        """
+        <div style="
+            background-color:#2F75B5;
+            padding:18px 25px;
+            border-radius:10px;
+            font-size:20px;
+            color:white;
+            margin-top:20px;
+            margin-bottom:10px;
+            text-align:center;
+        ">
+            <b>Stock Value By Time</b>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+        # Aggregate stock value by date
+        stock_time = (
+            df.groupby('date_id')[col_stock_value]
+            .sum()
+            .sort_index()
+        )
+
+        st.bar_chart(stock_time)
+
+    # ---------- STORE ANALYSIS ----------
+    if 'store_id' in df.columns and col_stock_value:
+        st.markdown(
+        """
+        <div style="
+            background-color:#2F75B5;
+            padding:18px 25px;
+            border-radius:10px;
+            font-size:20px;
+            color:white;
+            margin-top:20px;
+            margin-bottom:10px;
+            text-align:center;
+        ">
+            <b>Stock Value By Store</b>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+        stock_store = (
+            df.groupby('store_id')[col_stock_value]
+            .sum()
+            .sort_values(ascending=False)
+        )
+
+        st.bar_chart(stock_store)
+
+    # ---------- CLUSTER ANALYSIS ----------
+    if 'cluster_id' in df.columns and col_stock_value:
+        st.markdown(
+        """
+        <div style="
+            background-color:#2F75B5;
+            padding:18px 25px;
+            border-radius:10px;
+            font-size:20px;
+            color:white;
+            margin-top:20px;
+            margin-bottom:10px;
+            text-align:center;
+        ">
+            <b>Stock Value By Cluster</b>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+        stock_cluster = (
+            df.groupby('cluster_id')[col_stock_value]
+            .sum()
+            .sort_values(ascending=False)
+        )
+
+        st.bar_chart(stock_cluster)
+
+
 elif eda_option == "Sales Overview":
+    # Column mapping for inventory data
+    col_rev = None
+    col_qty = None
+    col_price = None
+    col_date = None
+    
+    # Find revenue column
+    for col in ['revenue', 'total_revenue', 'sales_amount', 'sales_value']:
+        if col in df.columns:
+            col_rev = col
+            break
+    
+    # Find quantity column
+    for col in ['quantity_sold', 'quantity', 'units_sold', 'sales_quantity']:
+        if col in df.columns:
+            col_qty = col
+            break
+    
+    # Find price column
+    for col in ['unit_price', 'price', 'selling_price']:
+        if col in df.columns:
+            col_price = col
+            break
+    
+    # Find date column
+    for col in ['date_id', 'date', 'transaction_date', 'sales_date']:
+        if col in df.columns:
+            col_date = col
+            break
+
     st.markdown(
     """
     <div style="
@@ -2201,6 +2344,139 @@ elif eda_option == "Sales Overview":
     )
 
     st.altair_chart(chart_channel, use_container_width=True)
+
+
+elif eda_option == "Transfer Effectiveness":
+    st.markdown(
+    """
+    <div style="
+        background-color:#2F75B5;
+        padding:28px;
+        border-radius:12px;
+        color:white;
+        font-size:16px;
+        line-height:1.6;
+        margin-bottom:20px;
+    ">
+
+    <b>What this section does:</b><br><br>
+
+    This analyzes <b>transfer optimization metrics</b> by comparing
+    transfer costs, service level improvements, and efficiency gains.
+
+    It evaluates:
+    <ul>
+        <li>Cost savings from optimized transfers</li>
+        <li>Service level improvements</li>
+        <li>Transfer efficiency across clusters</li>
+    </ul>
+    <br>
+
+    <b>Why this matters:</b>
+
+    Optimized transfers can reduce logistics costs while improving
+    inventory availability. This analysis helps ensure transfers are
+    <b>cost-effective and service-oriented</b>.
+
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+    # Column mapping for transfer data
+    transfer_id_col = None
+    transfer_cost_col = None
+    transfer_qty_col = None
+    service_gain_col = None
+    
+    # Find transfer ID column
+    for col in ["shipment_id", "transfer_id", "from_store_id"]:
+        if col in df.columns:
+            transfer_id_col = col
+            break
+
+    # Find transfer cost column
+    for col in ["transfer_cost", "fuel_cost", "shipment_cost"]:
+        if col in df.columns:
+            transfer_cost_col = col
+            break
+
+    # Find transfer quantity column
+    for col in ["transfer_qty", "optimal_transfer_qty", "shipment_quantity"]:
+        if col in df.columns:
+            transfer_qty_col = col
+            break
+
+    # Find service gain column
+    for col in ["service_level_gain_pct", "cost_minimization_pct", "model_confidence_score"]:
+        if col in df.columns:
+            service_gain_col = col
+            break
+
+    if transfer_id_col and transfer_cost_col:
+        base = df[df[transfer_id_col].notna()].copy()
+        agg = {transfer_cost_col: "sum"}
+        if transfer_qty_col:
+            agg[transfer_qty_col] = "sum"
+        if service_gain_col:
+            agg[service_gain_col] = "mean"
+
+        transfer_metrics = base.groupby(transfer_id_col).agg(agg).replace([np.inf, -np.inf], np.nan).dropna(how="all")
+
+        st.markdown(
+            """
+            <div class="summary-grid">
+                <div class="summary-card">
+                    <div class="summary-title">Total Transfer Cost</div>
+                    <div class="summary-value">{}</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-title"># Transfers</div>
+                    <div class="summary-value">{}</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-title">Avg Service Gain</div>
+                    <div class="summary-value">{}</div>
+                </div>
+            </div>
+            """.format(
+                f"${transfer_metrics[transfer_cost_col].sum():,.2f}",
+                f"{transfer_metrics.shape[0]:,}",
+                f"{transfer_metrics[service_gain_col].mean():.1f}%" if service_gain_col else "NA",
+            ),
+            unsafe_allow_html=True,
+        )
+
+        # Top transfers by cost
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("#### Top Transfers by Cost")
+            top_transfers = transfer_metrics.sort_values(transfer_cost_col, ascending=False).head(15)
+            st.dataframe(top_transfers, use_container_width=True)
+
+        with col2:
+            if service_gain_col and transfer_qty_col:
+                st.markdown("#### Transfer Cost vs Service Gain")
+                fig, ax = plt.subplots(figsize=(8, 4))
+                ax.scatter(transfer_metrics[transfer_cost_col], transfer_metrics[service_gain_col], alpha=0.7)
+                ax.set_xlabel("Transfer Cost")
+                ax.set_ylabel("Service Gain (%)")
+                ax.set_title("Transfer Cost vs Service Gain")
+                ax.grid(True, linestyle="--", alpha=0.3)
+                st.pyplot(fig)
+                plt.close(fig)
+            elif transfer_cost_col and transfer_qty_col:
+                st.markdown("#### Transfer Cost vs Quantity")
+                fig, ax = plt.subplots(figsize=(8, 4))
+                ax.scatter(transfer_metrics[transfer_cost_col], transfer_metrics[transfer_qty_col], alpha=0.7)
+                ax.set_xlabel("Transfer Cost")
+                ax.set_ylabel("Transfer Quantity")
+                ax.set_title("Transfer Cost vs Quantity")
+                ax.grid(True, linestyle="--", alpha=0.3)
+                st.pyplot(fig)
+                plt.close(fig)
+    else:
+        st.info("Transfer columns not available in the dataset.")
 
 
 elif eda_option == "Product-Level Analysis":
