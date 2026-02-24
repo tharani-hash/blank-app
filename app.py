@@ -885,9 +885,10 @@ if step == "Remove Outliers":
         st.stop()
 
     # --------------------------------------------------
-    # BASE COLUMNS (MOST TRUSTWORTHY FOR DELETION)
+    # BASE COLUMNS (MOST TRUSTWORTHY FOR DELETION) - USE SAFE COLUMN MAPPING
     # --------------------------------------------------
-    DELETE_COLS = ["quantity_sold", "unit_price"]
+    safe_cols = get_safe_columns()
+    DELETE_COLS = [safe_cols['quantity'], safe_cols['revenue']]  # Use mapped columns
 
     # --------------------------------------------------
     # INIT SESSION KEYS
@@ -934,8 +935,8 @@ if step == "Remove Outliers":
 
                 outlier_count += is_mild.astype(int)
 
-                # Hard delete if base column is extreme
-                if col in DELETE_COLS:
+                # Hard delete if base column is extreme and column exists
+                if col in DELETE_COLS and col is not None:
                     outlier_count += (
                         (before_df[col] < extreme_lower) |
                         (before_df[col] > extreme_upper)
@@ -944,9 +945,16 @@ if step == "Remove Outliers":
                 # Cap all numeric columns
                 after_df[col] = after_df[col].clip(mild_lower, mild_upper)
 
-            # 🔥 DELETE RULE (AGGRESSIVE BUT LOGICAL)
-            # Remove rows flagged in 3+ signals
-            extreme_mask = outlier_count >= 4
+            # 🔥 DELETE RULE (LESS AGGRESSIVE - MORE LOGICAL)
+            # Remove rows flagged in 2+ signals (reduced from 4+)
+            extreme_mask = outlier_count >= 2
+            
+            # Add debugging info
+            st.write(f"**Debug Info:**")
+            st.write(f"- Numeric columns analyzed: {len(numeric_cols)}")
+            st.write(f"- Outlier threshold: 2+ signals (was 4+)")
+            st.write(f"- DELETE_COLS: {[col for col in DELETE_COLS if col is not None]}")
+            st.write(f"- Rows flagged for removal: {extreme_mask.sum()}")
 
             removed_df = before_df[extreme_mask]
             after_df = after_df[~extreme_mask].reset_index(drop=True)
@@ -1114,10 +1122,26 @@ elif step == "Replace Missing Values":
                 null_counts.to_frame("NULL Count")
             )
 
-            # APPLY REPLACEMENT
+            # APPLY REPLACEMENT WITH DEBUGGING
+            df_before = df.copy()
             df_updated = df.fillna("Unknown")
             st.session_state.df = df_updated
             st.session_state.preprocessing_completed = True
+
+            # Add debugging info
+            st.write(f"**Debug Info:**")
+            st.write(f"- Total rows before replacement: {len(df_before)}")
+            st.write(f"- Total rows after replacement: {len(df_updated)}")
+            st.write(f"- Columns with NULL values: {list(null_counts.index)}")
+            st.write(f"- NULL counts per column: {dict(null_counts)}")
+            
+            # Check for unnamed columns
+            unnamed_cols = [col for col in df.columns if 'Unnamed:' in col]
+            if unnamed_cols:
+                st.warning(f"⚠️ Found unnamed columns: {unnamed_cols}")
+                for col in unnamed_cols:
+                    null_count = df[col].isnull().sum()
+                    st.write(f"- Column '{col}': {null_count} NULL values")
 
             # 🔒 SNAPSHOT SAME ROWS AFTER REPLACEMENT
             st.session_state.null_after_rows = df_updated.loc[
@@ -1128,61 +1152,56 @@ elif step == "Replace Missing Values":
 
 
     # ------------------------------------------------------------
-    # OUTPUT SECTION – AFFECTED ROWS ONLY
+    # OUTPUT SECTION – FULL DATASET COMPARISON
     # ------------------------------------------------------------
     if (
-    st.session_state.null_before_rows is not None and
-    st.session_state.null_after_rows is not None and
-    st.session_state.null_replaced_cols is not None
-):
+        st.session_state.null_before_rows is not None and
+        st.session_state.null_after_rows is not None and
+        st.session_state.null_replaced_cols is not None
+    ):
 
-
-        before_rows = st.session_state.null_before_rows
-        after_rows = st.session_state.null_after_rows
-        replaced_cols = st.session_state.null_replaced_cols
-        # ===================== COLUMNS =====================
-        st.markdown("####  Columns Where NULL Values Were Replaced")
-        st.write("")
-
-        if not replaced_cols.empty:
-            value_col = replaced_cols.columns[0]
-
-            html_cards = "".join(
-                f"""
-                <div class="summary-card">
-                    <div class="summary-title">{str(idx).replace('_', ' ').title()}</div>
-                    <div class="summary-value">{row[value_col]}</div>
-                </div>
-                """
-                for idx, row in replaced_cols.iterrows()
-            )
-
-            st.markdown(
-                f"""
-                <div class="summary-grid">
-                
-                    {html_cards}
-                </div>
-                """,
-                unsafe_allow_html=True   # 🔥 THIS IS CRITICAL
-            )
-        else:
-            st.info("No NULL values were replaced.")
-
-        st.write("")
-        # ===================== BEFORE =====================
-        st.markdown(
-            f"#### Rows Before Missing Values Replacement ({before_rows.shape[0]} Rows)"
-        )
-        st.write("")
-        render_html_table(before_rows)
+        # Get full datasets for comparison
+        df_before_full = st.session_state.null_before_rows
+        df_after_full = st.session_state.df  # This is the full updated dataset
         
-        # ===================== AFTER =====================
-        st.markdown(
-            f"####  Rows After Missing Values Replacement ({after_rows.shape[0]} Rows)"
-        )
+        replaced_cols = st.session_state.null_replaced_cols
+        
+        # Show summary with full dataset counts
+        st.markdown("#### Missing Values Replacement Summary")
         st.write("")
-        render_html_table(after_rows)
+        st.markdown("""
+        <div class="summary-grid">
+            <div class="summary-card">
+                <div class="summary-title">Rows Before</div>
+                <div class="summary-value">{}</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-title">Rows After</div>
+                <div class="summary-value">{}</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-title">NULL Values Replaced</div>
+                <div class="summary-value">{}</div>
+            </div>
+        </div>
+        """.format(
+            len(df_before_full),
+            len(df_after_full),
+            (df_before_full.isnull().sum().sum() - df_after_full.isnull().sum().sum())
+        ), unsafe_allow_html=True)
+        
+        st.write("")
+        
+        # Show full datasets
+        st.markdown(f"#### Full Dataset Before Replacement ({len(df_before_full)} Rows)")
+        st.write("")
+        render_html_table(df_before_full.head(20))  # Show first 20 rows
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        st.markdown(f"#### Full Dataset After Replacement ({len(df_after_full)} Rows)")
+        st.write("")
+        render_html_table(df_after_full.head(20))  # Show first 20 rows
 
 
 
@@ -1420,6 +1439,76 @@ st.markdown(
 )
 st.write("")
 st.info(f"Dataset Loaded: **{df.shape[0]} rows × {df.shape[1]} columns**")
+st.write("")
+
+# Add debugging section for column detection
+with st.expander("🔍 Column Detection & Debugging Info"):
+    st.write("**Column Mapping Results:**")
+    
+    safe_cols = get_safe_columns()
+    
+    col_mapping_info = pd.DataFrame({
+        'Data Type': ['Product', 'Quantity', 'Revenue', 'Profit', 'Store', 'Customer', 'Channel'],
+        'Expected Column': ['product_id', 'quantity_sold', 'total_sales_amount', 'profit_value', 'store_id', 'customer_id', 'channel_id'],
+        'Found Column': [safe_cols['product'], safe_cols['quantity'], safe_cols['revenue'], safe_cols['profit'], safe_cols['store'], safe_cols['customer'], safe_cols['channel']],
+        'Status': ['✅ Found' if safe_cols['product'] else '❌ Missing',
+                   '✅ Found' if safe_cols['quantity'] else '❌ Missing', 
+                   '✅ Found' if safe_cols['revenue'] else '❌ Missing',
+                   '✅ Found' if safe_cols['profit'] else '❌ Missing',
+                   '✅ Found' if safe_cols['store'] else '❌ Missing',
+                   '✅ Found' if safe_cols['customer'] else '❌ Missing',
+                   '✅ Found' if safe_cols['channel'] else '❌ Missing']
+    })
+    
+    st.dataframe(col_mapping_info)
+    
+    st.write("**All Available Columns:**")
+    all_cols_df = pd.DataFrame({
+        'Column Name': df.columns.tolist(),
+        'Data Type': df.dtypes.astype(str).values.tolist(),
+        'Non-Null Count': df.count().values.tolist()
+    })
+    st.dataframe(all_cols_df)
+    
+    st.write("**Duplicate Analysis:**")
+    dup_count = df.duplicated().sum()
+    total_rows = len(df)
+    dup_percentage = (dup_count / total_rows * 100) if total_rows > 0 else 0
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.metric("Total Rows", f"{total_rows:,}")
+    with col2:
+        st.metric("Duplicate Rows", f"{dup_count:,}")
+    with col3:
+        st.metric("Duplicate %", f"{dup_percentage:.2f}%")
+    
+    if dup_count > 0:
+        st.warning(f"⚠️ Found {dup_count} duplicate rows ({dup_percentage:.2f}% of dataset)")
+        
+        with st.expander("📋 Show Duplicate Rows Sample"):
+            dup_sample = df[df.duplicated()].head(10)
+            st.dataframe(dup_sample)
+            
+            st.write("**Duplicate Columns Analysis:**")
+            dup_cols_analysis = []
+            for col in df.columns:
+                col_dup_count = df.duplicated(subset=[col]).sum()
+                if col_dup_count > 0:
+                    dup_cols_analysis.append({
+                        'Column': col,
+                        'Duplicates': col_dup_count,
+                        'Type': 'Exact Duplicates' if col_dup_count == dup_count else 'Partial Duplicates'
+                    })
+            
+            if dup_cols_analysis:
+                st.dataframe(pd.DataFrame(dup_cols_analysis))
+    else:
+        st.success("✅ No duplicate rows found in dataset")
+
+st.write("")
+
 st.write("")
 # ---------------- EDA INTRO CARD ----------------
 st.markdown(
@@ -2228,22 +2317,26 @@ elif eda_option == "Product-Level Analysis":
     bottom=0.28   # enough for rotated labels
 )
 
-        ax1.bar(
-            top_products.index.astype(str),
-            top_products["total_revenue"],
-            color=BAR_BLUE
-        )
+        # Only create chart if we have data and revenue column exists
+        if not top_products.empty and 'total_revenue' in top_products.columns:
+            ax1.bar(
+                top_products.index.astype(str),
+                top_products["total_revenue"],
+                color=BAR_BLUE
+            )
 
-        ax1.set_xlabel("Product ID")
-        ax1.set_ylabel("Total Revenue")
-        ax1.tick_params(axis="x", rotation=45)
-        ax1.grid(axis="y", linestyle="-", color=GRID_GREEN, alpha=0.5)
+            ax1.set_xlabel("Product ID")
+            ax1.set_ylabel("Total Revenue")
+            ax1.tick_params(axis="x", rotation=45)
+            ax1.grid(axis="y", linestyle="-", color=GRID_GREEN, alpha=0.5)
 
-        ax1.spines["top"].set_visible(False)
-        ax1.spines["right"].set_visible(False)
-        
-        st.pyplot(fig1)
-        plt.close(fig1)
+            ax1.spines["top"].set_visible(False)
+            ax1.spines["right"].set_visible(False)
+            
+            st.pyplot(fig1)
+            plt.close(fig1)
+        else:
+            st.warning("⚠️ No revenue data available for product revenue chart")
 
 
     # ---------- PLOT 2: Demand vs Profitability ----------
@@ -2260,32 +2353,44 @@ elif eda_option == "Product-Level Analysis":
     top=0.92,
     bottom=0.13   # enough for rotated labels
 )
-        ax2.scatter(
-            product_metrics["total_quantity_sold"],
-            product_metrics["total_profit"],
-            alpha=0.6,
-            color=BAR_BLUE
-        )
-
-        ax2.set_xlabel("Total Quantity Sold (Demand)")
-        ax2.set_ylabel("Total Profit")
-        ax2.grid(True, linestyle="-", color=GRID_GREEN, alpha=0.5)
-
-        for pid, row in label_products.iterrows():
-            ax2.annotate(
-                pid,
-                (row["total_quantity_sold"], row["total_profit"]),
-                xytext=(5, 5),
-                textcoords="offset points",
-                fontsize=8,
-                alpha=0.9
+        # Only create chart if we have data and required columns exist
+        if (product_metrics is not None and 
+            not product_metrics.empty and 
+            'total_quantity_sold' in product_metrics.columns and 
+            'total_profit' in product_metrics.columns):
+            
+            ax2.scatter(
+                product_metrics["total_quantity_sold"],
+                product_metrics["total_profit"],
+                alpha=0.6,
+                color=BAR_BLUE
             )
 
-        ax2.spines["top"].set_visible(False)
-        ax2.spines["right"].set_visible(False)
+            ax2.set_xlabel("Total Quantity Sold (Demand)")
+            ax2.set_ylabel("Total Profit")
+            ax2.grid(True, linestyle="-", color=GRID_GREEN, alpha=0.5)
 
-        st.pyplot(fig2)
-        plt.close(fig2)
+            # Add labels for top products if available
+            if label_products is not None and not label_products.empty:
+                for pid, row in label_products.iterrows():
+                    if pid in product_metrics.index:
+                        ax2.annotate(
+                            pid,
+                            (product_metrics.loc[pid, "total_quantity_sold"], 
+                             product_metrics.loc[pid, "total_profit"]),
+                            xytext=(5, 5),
+                            textcoords="offset points",
+                            fontsize=8,
+                            alpha=0.9
+                        )
+
+            ax2.spines["top"].set_visible(False)
+            ax2.spines["right"].set_visible(False)
+            
+            st.pyplot(fig2)
+            plt.close(fig2)
+        else:
+            st.warning("⚠️ No quantity or profit data available for demand vs profitability chart")
 
 
     # =========================================================
