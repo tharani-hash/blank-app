@@ -341,6 +341,40 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# Fix chart text visibility
+st.markdown("""
+<style>
+/* Streamlit chart text visibility fix */
+.streamlit-charts text,
+.streamlit-charts .tick text,
+.streamlit-charts .axis text,
+.streamlit-charts .label,
+.streamlit-charts .legend text {
+    fill: #000000 !important;
+    color: #000000 !important;
+    font-weight: 600 !important;
+}
+
+/* Fix bar chart specifically */
+.stBarChart text,
+.stBarChart .tick text,
+.stBarChart .axis text,
+.stBarChart .label {
+    fill: #000000 !important;
+    color: #000000 !important;
+    font-weight: 600 !important;
+}
+
+/* General chart styling */
+element-container text,
+element-container .tick text,
+element-container .axis text {
+    fill: #000000 !important;
+    color: #000000 !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
 
 
 st.markdown(
@@ -354,13 +388,14 @@ st.markdown(
         margin:0 0 20px 0;
     ">
         <h1 style="margin:0 0 8px 0;">
-            AI-Driven Stock Rebalancing for Demand-Responsive Retail
+            AI-Powered Demand Forecasting & Sales Prediction Engine
         </h1>
         <h3 style="font-weight:400; margin:0;">
-            Move the Right Stock, to the Right Store, at the Right Time
+            From Broad Estimates to SKU-Level Intelligence
         </h3>
         <p style="font-size:17px; margin-top:15px;">
-            Clustering-Based Demand Signals + Optimization-Driven Transfers
+            Predict demand accurately across products, stores, channels,
+            promotions, events, and time.
         </p>
     </div>
     """,
@@ -456,7 +491,7 @@ st.markdown(
         margin-bottom:10px;
     ">
         <h3 style="margin:0;">
-            Data Collection & Integration (Unified Data Ingestion)
+            Data Collection & Integration
         </h3>
     </div>
     """,
@@ -520,43 +555,46 @@ if df is not None:
         unsafe_allow_html=True
     )
 
-    render_html_table(
-        df.head(20),
-        max_height=260
+    st.markdown(
+        render_html_table(
+            df.head(20),
+            max_height=260
+        ),
+        unsafe_allow_html=True
     )
 else:
     st.info("Click the button above to load the dataset.")
+
 # ============================================================
-# STEP 2 – DATA PRE-PROCESSING (USER-CONTROLLED PIPELINE)
+# STEP 2 – DATA PRE-PROCESSING (USER-CONTROLLED PIPELINE) - ONLY SHOW AFTER DATA LOADED
 # ============================================================
-if "preprocess_history" not in st.session_state:
-    st.session_state.preprocess_history = {
-        "duplicates": None,
-        "outliers": {},
-        "null_replaced_cols": None,
-        "null_replaced_rows": None,
-        "numeric_converted": None
-    }
+if st.session_state.df is not None:
+    if "preprocess_history" not in st.session_state:
+        st.session_state.preprocess_history = {
+            "duplicates": None,
+            "outliers": {},
+            "null_replaced_cols": None,
+            "null_replaced_rows": None,
+            "numeric_converted": None
+        }
 
-if "preprocessing_completed" not in st.session_state:
-    st.session_state.preprocessing_completed = False
+    if "preprocessing_completed" not in st.session_state:
+        st.session_state.preprocessing_completed = False
 
-
-
-st.markdown("""
-<div style="
-    background-color:#0B2C5D;
-    padding:18px 25px;
-    border-radius:10px;
-    color:white;
-    margin-top:25px;
-    margin-bottom:12px;
-">
-    <h3 style="margin:0;">
-        Data Pre-Processing (Data Quality & Readiness)
-    </h3>
-</div>
-""", unsafe_allow_html=True)
+    st.markdown("""
+    <div style="
+        background-color:#0B2C5D;
+        padding:18px 25px;
+        border-radius:10px;
+        color:white;
+        margin-top:25px;
+        margin-bottom:12px;
+    ">
+        <h3 style="margin:0;">
+            Data Pre-Processing
+        </h3>
+    </div>
+    """, unsafe_allow_html=True)
 
 st.markdown("""
 <div style="
@@ -1400,15 +1438,10 @@ alt.themes.enable("transparent_theme")
 # STEP 3 – EDA (LOCKED UNTIL PREPROCESSING)
 # ============================================================
 
-
-df = st.session_state.get("df", None)
-
-if df is None:
-    st.warning("⚠ No dataset available.")
+if not st.session_state.preprocessing_completed:
+    st.info("ℹ Please apply at least one data pre-processing step to unlock EDA.")
     st.stop()
 
-
-# ---------------- EDA HEADER ----------------
 st.markdown(
     """
     <div style="
@@ -1416,55 +1449,23 @@ st.markdown(
         padding:18px 25px;
         border-radius:10px;
         color:white;
-        margin-top:20px;
-        margin-bottom:10px;
+        margin-top:25px;
+        margin-bottom:12px;
     ">
-        <h3 style="margin:0;">Exploratory Data Analysis (EDA)</h3>
+        <h3 style="margin:0;">Exploratory Data Analysis</h3>
     </div>
     """,
     unsafe_allow_html=True
 )
-st.write("")
-st.info(f"Dataset Loaded: **{df.shape[0]} rows × {df.shape[1]} columns**")
-st.write("")
 
-dup_count = df.duplicated().sum()
-total_rows = len(df)
-dup_percentage = (dup_count / total_rows * 100) if total_rows > 0 else 0
-    
-col1, col2, col3 = st.columns(3)
-    
-with col1:
-    st.metric("Total Rows", f"{total_rows:,}")
-with col2:
-    st.metric("Duplicate Rows", f"{dup_count:,}")
-with col3:
-    st.metric("Duplicate %", f"{dup_percentage:.2f}%")
-    
-if dup_count > 0:
-    st.warning(f"⚠️ Found {dup_count} duplicate rows ({dup_percentage:.2f}% of dataset)")
-    
-    with st.expander("📋 Show Duplicate Rows Sample"):
-        dup_sample = df[df.duplicated()].head(10)
-        st.dataframe(dup_sample)
-            
-        st.write("**Duplicate Columns Analysis:**")
-        dup_cols_analysis = []
-        for col in df.columns:
-            col_dup_count = df.duplicated(subset=[col]).sum()
-            if col_dup_count > 0:
-                dup_cols_analysis.append({
-                    'Column': col,
-                    'Duplicates': col_dup_count,
-                    'Type': 'Exact Duplicates' if col_dup_count == dup_count else 'Partial Duplicates'
-                })
+df = st.session_state.get("df", None)
+
+if df is None:
+    st.warning("⚠ No dataset available.")
+    st.stop()
+
+st.write("")
         
-        if dup_cols_analysis:
-            st.dataframe(pd.DataFrame(dup_cols_analysis))
-
-st.write("")
-
-st.write("")
 # ---------------- EDA INTRO CARD ----------------
 st.markdown(
     """
@@ -1478,7 +1479,7 @@ st.markdown(
         margin-bottom:20px;
     ">
 
-    <b>Exploratory Data Analysis (EDA)</b><br><br>
+    <b>Exploratory Data Analysis</b><br><br>
 
     Provides <b>high-level insights</b> to understand demand and inventory patterns before stock rebalancing optimization.<br><br>
 
@@ -1857,122 +1858,23 @@ elif eda_option == "Inventory Overview":
             unsafe_allow_html=True
     )
 
-        # Add time level selection
-        time_level = st.selectbox(
-            "📅 Select Time Level:",
-            options=["Year", "Quarter", "Month", "Week", "Day"],
-            key="time_level_select"
-        )
-
-        # Add drill-down navigation
-        if "time_drill_path" not in st.session_state:
-            st.session_state.time_drill_path = []
-        
-        current_path = st.session_state.time_drill_path
-
-        # Show current path and reset button
-        if current_path:
-            path_display = " → ".join(current_path)
-            st.markdown(
-                f"""
-                <div style="
-                    background-color:#E6F3FF;
-                    padding:10px 15px;
-                    border-radius:8px;
-                    border-left:4px solid #2F75B5;
-                    margin:10px 0;
-                    font-size:14px;
-                    color:#0B2C5D;
-                ">
-                    <b>📍 Current Path:</b> {path_display}
-                    <button onclick="parent.location.reload()" style="
-                        background:#2F75B5;
-                        color:white;
-                        border:none;
-                        padding:6px 12px;
-                        border-radius:4px;
-                        cursor:pointer;
-                        margin-left:10px;
-                    ">🔄 Reset</button>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
-        # Aggregate and filter data based on time level
+    # ---------- TIME SERIES ANALYSIS (SIMPLE MONTHLY) ----------
+    if 'date_id' in df.columns and col_stock_value:
+        # Create monthly aggregation
         df_time = df.copy()
+        df_time['date_id'] = pd.to_datetime(df_time['date_id'], errors='coerce')
+        df_time = df_time.dropna(subset=['date_id'])
+        df_time['month'] = df_time['date_id'].dt.to_period('M').astype(str)
         
-        if time_level == "Year":
-            # Extract year from date_id
-            df_time['year'] = pd.to_datetime(df_time['date_id'], errors='coerce').dt.year
-            time_col = 'year'
-            time_label = 'Year'
-            
-        elif time_level == "Quarter":
-            # Extract quarter from date_id
-            df_time['quarter'] = "Q" + pd.to_datetime(df_time['date_id'], errors='coerce').dt.quarter.astype(str)
-            time_col = 'quarter'
-            time_label = 'Quarter'
-            
-        elif time_level == "Month":
-            # Extract month from date_id
-            df_time['month'] = pd.to_datetime(df_time['date_id'], errors='coerce').dt.month_name()
-            time_col = 'month'
-            time_label = 'Month'
-            
-        elif time_level == "Week":
-            # Extract week from date_id (assuming ISO week)
-            df_time['week'] = "Week " + pd.to_datetime(df_time['date_id'], errors='coerce').dt.isocalendar().week.astype(str)
-            time_col = 'week'
-            time_label = 'Week'
-            
-        else:  # Day level
-            df_time['day'] = pd.to_datetime(df_time['date_id'], errors='coerce').dt.day
-            time_col = 'day'
-            time_label = 'Day'
-
-        # Aggregate by selected time level
-        time_agg = df_time.groupby(time_col)[col_stock_value].sum().sort_index()
-
-        # Display chart
-        st.markdown(f"### Stock Value by {time_label}")
-        st.bar_chart(time_agg)
-
-        # Add drill-down options
-        st.markdown("#### 📊 Drill-Down Options")
-        
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            if time_level != "Year":
-                if st.button(f"📅 View by Year"):
-                    st.session_state.time_drill_path = ["Year"]
-                    st.rerun()
-            else:
-                st.write("📅 Currently viewing by Year")
-        
-        with col2:
-            if time_level != "Quarter":
-                if st.button(f"📊 View by Quarter"):
-                    st.session_state.time_drill_path = ["Quarter"]
-                    st.rerun()
-            else:
-                st.write("📊 Currently viewing by Quarter")
-        
-        with col3:
-            if time_level != "Month":
-                if st.button(f"📅 View by Month"):
-                    st.session_state.time_drill_path = ["Month"]
-                    st.rerun()
-            else:
-                st.write("📅 Currently viewing by Month")
-
-        # Show detailed data table
-        st.markdown("#### 📋 Detailed Data")
-        st.dataframe(
-            time_agg.reset_index().head(20),
-            use_container_width=True
+        # Aggregate by month
+        monthly_stock = (
+            df_time.groupby('month')[col_stock_value]
+            .sum()
+            .sort_index()
         )
+        
+        st.markdown("### Stock Value by Month")
+        st.bar_chart(monthly_stock)
 
     # ---------- STORE ANALYSIS ----------
     if 'store_id' in df.columns and col_stock_value:
@@ -4708,19 +4610,11 @@ elif eda_option == "Summary Report":
             <li>Influence breakdown reveals that some events are <b>trend-driven</b>, while others are <b>weather-sensitive</b>.</li>
         </ul>
 
-        <h4> Cross-Dimensional Insights</h4>
+        <h4> Summary Statistics</h4>
         <ul>
-            <li>Revenue and demand are concentrated across products, customers, stores, and channels.</li>
-            <li>Discounts, returns, and damaged stock act as <b>hidden profitability leakages</b>.</li>
-            <li>Events and promotions introduce strong non-linear effects on demand.</li>
-        </ul>
-
-        <h4> Final Takeaway</h4>
-        <ul>
-            <li>The dataset is <b>clean, consistent, and enterprise-grade</b>.</li>
-            <li>Clear demand drivers and inefficiencies are observable across multiple dimensions.</li>
-            <li>Forecasting accuracy will significantly improve by modeling at <b>SKU × Store × Channel × Event × Promotion</b> levels.</li>
-            <li>The EDA strongly supports downstream use cases in <b>demand forecasting, inventory optimization, and promotion intelligence</b>.</li>
+            <li>The dataset contains comprehensive inventory metrics across products, stores, clusters, transfers, and optimization models.</li>
+            <li>Use Inventory Overview to verify stock levels, values, and trends over time.</li>
+            <li>Use Product, Store, Cluster, and Transfer analyses to identify optimization opportunities.</li>
         </ul>
 
         </div>
