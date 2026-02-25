@@ -1864,6 +1864,13 @@ elif eda_option == "Inventory Overview":
         if 'drill_selection' not in st.session_state:
             st.session_state.drill_selection = None
         
+        # Handle URL parameters for drill-down
+        query_params = st.query_params
+        if 'drill_level' in query_params:
+            st.session_state.drill_level = query_params['drill_level']
+        if 'drill_selection' in query_params:
+            st.session_state.drill_selection = query_params['drill_selection']
+        
         # Prepare time data
         df_time = df.copy()
         df_time['date_id'] = pd.to_datetime(df_time['date_id'], errors='coerce')
@@ -1959,48 +1966,55 @@ elif eda_option == "Inventory Overview":
         # Display chart with title
         st.markdown(f"### {chart_title}")
         
+        # Add double-click event handling with JavaScript
+        double_click_js = """
+        <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const vegaEmbed = document.querySelector('.vega-bindings');
+            if (vegaEmbed) {
+                vegaEmbed.addEventListener('dblclick', function(event) {
+                    const datum = event.detail.datum;
+                    if (datum) {
+                        // Get current level from URL or session
+                        const currentLevel = '%s';
+                        
+                        // Determine next level and selection
+                        let nextLevel = '';
+                        let selection = '';
+                        
+                        if (currentLevel === 'year') {
+                            nextLevel = 'quarter';
+                            selection = datum.year.toString();
+                        } else if (currentLevel === 'quarter') {
+                            nextLevel = 'month';
+                            selection = datum.quarter;
+                        } else if (currentLevel === 'month') {
+                            nextLevel = 'week';
+                            selection = datum.month;
+                        } else if (currentLevel === 'week') {
+                            nextLevel = 'month';
+                            selection = datum.month;
+                        }
+                        
+                        // Trigger Streamlit rerun with new level
+                        if (nextLevel && selection) {
+                            const params = new URLSearchParams(window.location.search);
+                            params.set('drill_level', nextLevel);
+                            params.set('drill_selection', selection);
+                            window.location.search = params.toString();
+                        }
+                    }
+                });
+            }
+        });
+        </script>
+        """ % st.session_state.drill_level
+        
+        # Inject JavaScript for double-click handling
+        st.components.v1.html(double_click_js, height=0)
+        
         # Display chart
         st.altair_chart(chart_data, use_container_width=True)
-        
-        # Handle drill-down navigation with buttons
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            if st.button("🔄 Back"):
-                # Navigate back in cycle
-                if st.session_state.drill_level == 'quarter':
-                    st.session_state.drill_level = 'year'
-                    st.session_state.drill_selection = None
-                elif st.session_state.drill_level == 'month':
-                    st.session_state.drill_level = 'quarter'
-                    # Extract year from quarter selection
-                    st.session_state.drill_selection = st.session_state.drill_selection.split(' ')[1]
-                elif st.session_state.drill_level == 'week':
-                    st.session_state.drill_level = 'month'
-                    # Extract quarter from month selection
-                    st.session_state.drill_selection = st.session_state.drill_selection.split('-')[0] + ' ' + st.session_state.drill_selection.split('-')[1][:4]
-                st.rerun()
-        
-        with col2:
-            if st.button("📊 Drill Down"):
-                # Advance to next level in cycle
-                if st.session_state.drill_level == 'year':
-                    st.session_state.drill_level = 'quarter'
-                    st.session_state.drill_selection = df_filtered['year'].iloc[0]  # Select first year
-                elif st.session_state.drill_level == 'quarter':
-                    st.session_state.drill_level = 'month'
-                    st.session_state.drill_selection = df_filtered['quarter'].iloc[0]  # Select first quarter
-                elif st.session_state.drill_level == 'month':
-                    st.session_state.drill_level = 'week'
-                    st.session_state.drill_selection = df_filtered['month'].iloc[0]  # Select first month
-                elif st.session_state.drill_level == 'week':
-                    st.session_state.drill_level = 'month'
-                    st.session_state.drill_selection = df_filtered['month'].iloc[0]  # Back to month
-                st.rerun()
-        
-        with col3:
-            # Show current level info
-            st.info(f"**Current Level:** {st.session_state.drill_level.title()}")
 
     # ---------- STORE ANALYSIS ----------
     if 'store_id' in df.columns and col_stock_value:
