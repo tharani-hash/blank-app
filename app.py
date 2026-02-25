@@ -1838,43 +1838,169 @@ elif eda_option == "Inventory Overview":
         unsafe_allow_html=True
     )
 
-    # ---------- TIME SERIES ANALYSIS ----------
+    # ---------- INTERACTIVE DRILL-DOWN TIME SERIES ANALYSIS ----------
     if 'date_id' in df.columns and col_stock_value:
         st.markdown(
-        """
-        <div style="
-            background-color:#2F75B5;
-            padding:18px 25px;
-            border-radius:10px;
-            font-size:20px;
-            color:white;
-            margin-top:20px;
-            margin-bottom:10px;
-            text-align:center;
-        ">
-            <b>Stock Value By Time</b>
-        </div>
-        """,
-            unsafe_allow_html=True
-    )
-
-    # ---------- TIME SERIES ANALYSIS (SIMPLE MONTHLY) ----------
-    if 'date_id' in df.columns and col_stock_value:
-        # Create monthly aggregation
+            """
+            <div style="
+                background-color:#2F75B5;
+                padding:18px 25px;
+                border-radius:10px;
+                font-size:20px;
+                color:white;
+                margin-top:20px;
+                margin-bottom:10px;
+                text-align:center;
+            ">
+                <b>Stock Value By Time</b>
+            </div>
+            """,
+                unsafe_allow_html=True
+            )
+        
+        # Initialize session state for drill-down navigation
+        if 'drill_level' not in st.session_state:
+            st.session_state.drill_level = 'year'
+        if 'drill_selection' not in st.session_state:
+            st.session_state.drill_selection = None
+        
+        # Prepare time data
         df_time = df.copy()
         df_time['date_id'] = pd.to_datetime(df_time['date_id'], errors='coerce')
         df_time = df_time.dropna(subset=['date_id'])
+        
+        # Add time components
+        df_time['year'] = df_time['date_id'].dt.year
+        df_time['quarter'] = df_time['date_id'].dt.to_period('Q').astype(str)
         df_time['month'] = df_time['date_id'].dt.to_period('M').astype(str)
+        df_time['week'] = df_time['date_id'].dt.isocalendar().week.astype(str) + '-' + df_time['year'].astype(str)
         
-        # Aggregate by month
-        monthly_stock = (
-            df_time.groupby('month')[col_stock_value]
-            .sum()
-            .sort_index()
-        )
+        # Filter data based on current drill selection
+        if st.session_state.drill_selection and st.session_state.drill_level != 'year':
+            if st.session_state.drill_level == 'quarter':
+                year_selected = st.session_state.drill_selection
+                df_filtered = df_time[df_time['year'] == year_selected]
+            elif st.session_state.drill_level == 'month':
+                quarter_selected = st.session_state.drill_selection
+                df_filtered = df_time[df_time['quarter'] == quarter_selected]
+            elif st.session_state.drill_level == 'week':
+                month_selected = st.session_state.drill_selection
+                df_filtered = df_time[df_time['month'] == month_selected]
+            else:
+                df_filtered = df_time
+        else:
+            df_filtered = df_time
         
-        st.markdown("### Stock Value by Month")
-        st.bar_chart(monthly_stock)
+        # Generate chart based on current drill level
+        if st.session_state.drill_level == 'year':
+            # Year-wise view
+            yearly_data = df_filtered.groupby('year')[col_stock_value].sum().reset_index()
+            chart_data = alt.Chart(yearly_data).mark_bar(
+                color='#001F5C',
+                cornerRadiusEnd=6
+            ).encode(
+                x=alt.X('year:O', title='Year'),
+                y=alt.Y(f'{col_stock_value}:Q', title='Stock Value'),
+                tooltip=['year', col_stock_value]
+            ).properties(
+                height=400,
+                background='transparent'
+            )
+            chart_title = "Stock Value by Year"
+            
+        elif st.session_state.drill_level == 'quarter':
+            # Quarter-wise view
+            quarter_data = df_filtered.groupby('quarter')[col_stock_value].sum().reset_index()
+            chart_data = alt.Chart(quarter_data).mark_bar(
+                color='#001F5C',
+                cornerRadiusEnd=6
+            ).encode(
+                x=alt.X('quarter:O', title='Quarter'),
+                y=alt.Y(f'{col_stock_value}:Q', title='Stock Value'),
+                tooltip=['quarter', col_stock_value]
+            ).properties(
+                height=400,
+                background='transparent'
+            )
+            chart_title = f"Stock Value by Quarter - {st.session_state.drill_selection}"
+            
+        elif st.session_state.drill_level == 'month':
+            # Month-wise view
+            month_data = df_filtered.groupby('month')[col_stock_value].sum().reset_index()
+            chart_data = alt.Chart(month_data).mark_bar(
+                color='#001F5C',
+                cornerRadiusEnd=6
+            ).encode(
+                x=alt.X('month:O', title='Month'),
+                y=alt.Y(f'{col_stock_value}:Q', title='Stock Value'),
+                tooltip=['month', col_stock_value]
+            ).properties(
+                height=400,
+                background='transparent'
+            )
+            chart_title = f"Stock Value by Month - {st.session_state.drill_selection}"
+            
+        else:  # week level
+            # Week-wise view
+            week_data = df_filtered.groupby('week')[col_stock_value].sum().reset_index()
+            chart_data = alt.Chart(week_data).mark_bar(
+                color='#001F5C',
+                cornerRadiusEnd=6
+            ).encode(
+                x=alt.X('week:O', title='Week'),
+                y=alt.Y(f'{col_stock_value}:Q', title='Stock Value'),
+                tooltip=['week', col_stock_value]
+            ).properties(
+                height=400,
+                background='transparent'
+            )
+            chart_title = f"Stock Value by Week - {st.session_state.drill_selection}"
+        
+        # Display chart with title
+        st.markdown(f"### {chart_title}")
+        
+        # Display chart
+        st.altair_chart(chart_data, use_container_width=True)
+        
+        # Handle drill-down navigation with buttons
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            if st.button("🔄 Back"):
+                # Navigate back in cycle
+                if st.session_state.drill_level == 'quarter':
+                    st.session_state.drill_level = 'year'
+                    st.session_state.drill_selection = None
+                elif st.session_state.drill_level == 'month':
+                    st.session_state.drill_level = 'quarter'
+                    # Extract year from quarter selection
+                    st.session_state.drill_selection = st.session_state.drill_selection.split(' ')[1]
+                elif st.session_state.drill_level == 'week':
+                    st.session_state.drill_level = 'month'
+                    # Extract quarter from month selection
+                    st.session_state.drill_selection = st.session_state.drill_selection.split('-')[0] + ' ' + st.session_state.drill_selection.split('-')[1][:4]
+                st.rerun()
+        
+        with col2:
+            if st.button("📊 Drill Down"):
+                # Advance to next level in cycle
+                if st.session_state.drill_level == 'year':
+                    st.session_state.drill_level = 'quarter'
+                    st.session_state.drill_selection = df_filtered['year'].iloc[0]  # Select first year
+                elif st.session_state.drill_level == 'quarter':
+                    st.session_state.drill_level = 'month'
+                    st.session_state.drill_selection = df_filtered['quarter'].iloc[0]  # Select first quarter
+                elif st.session_state.drill_level == 'month':
+                    st.session_state.drill_level = 'week'
+                    st.session_state.drill_selection = df_filtered['month'].iloc[0]  # Select first month
+                elif st.session_state.drill_level == 'week':
+                    st.session_state.drill_level = 'month'
+                    st.session_state.drill_selection = df_filtered['month'].iloc[0]  # Back to month
+                st.rerun()
+        
+        with col3:
+            # Show current level info
+            st.info(f"**Current Level:** {st.session_state.drill_level.title()}")
 
     # ---------- STORE ANALYSIS ----------
     if 'store_id' in df.columns and col_stock_value:
