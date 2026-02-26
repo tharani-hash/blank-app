@@ -1906,6 +1906,7 @@ elif eda_option == "Inventory Overview":
         if st.session_state.drill_level == 'year':
             # Year-wise view - Altair chart with proper axis labels
             yearly_data = df_time.groupby('year')[col_stock_value].sum().reset_index()
+            chart_title = "Stock Value by Year"
             chart_data = alt.Chart(yearly_data).mark_bar(
                 color='#2F75B5',
                 cornerRadiusEnd=6
