@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 import io
 import numpy as np
 import altair as alt
-import plotly.graph_objects as go
 
 # ============================================================================
 # HTML TABLE RENDERING FUNCTION
@@ -2043,41 +2042,34 @@ elif eda_option == "Inventory Overview":
             .sort_values(ascending=False)
         )
 
-        # Create Plotly chart with custom axis labels
-        fig = go.Figure(data=[
-            go.Bar(
-                x=stock_store.index.astype(str),
-                y=stock_store.values,
-                marker_color='#2F75B5'
-            )
-        ])
-
-        fig.update_layout(
-            title={
-                'text': 'Stock Value By Store',
-                'x': 0.5,
-                'xanchor': 'center',
-                'font': {'size': 20, 'color': '#2F75B5'}
-            },
-            xaxis_title='Store ID',
-            yaxis_title='Stock Value',
-            xaxis=dict(
-                tickangle=45,
-                title_font=dict(size=14, color='#333'),
-                tickfont=dict(size=12, color='#333')
-            ),
-            yaxis=dict(
-                title_font=dict(size=14, color='#333'),
-                tickfont=dict(size=12, color='#333'),
-                tickformat=',.0f'
-            ),
-            plot_bgcolor='white',
-            paper_bgcolor='white',
-            margin=dict(l=50, r=50, t=80, b=100),
-            height=500
-        )
-
-        st.plotly_chart(fig, use_container_width=True)
+        # Create Matplotlib chart with custom axis labels
+        fig, ax = plt.subplots(figsize=(12, 6))
+        
+        bars = ax.bar(stock_store.index.astype(str), stock_store.values, color='#2F75B5')
+        
+        ax.set_title('Stock Value By Store', fontsize=20, color='#2F75B5', pad=20)
+        ax.set_xlabel('Store ID', fontsize=14, color='#333')
+        ax.set_ylabel('Stock Value', fontsize=14, color='#333')
+        
+        # Format y-axis with commas
+        ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x:,.0f}'))
+        
+        # Rotate x-axis labels for better readability
+        plt.xticks(rotation=45, ha='right', fontsize=12)
+        plt.yticks(fontsize=12)
+        
+        # Remove top and right spines for cleaner look
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        
+        # Add grid for better readability
+        ax.grid(axis='y', alpha=0.3)
+        
+        plt.tight_layout()
+        
+        # Display in Streamlit
+        st.pyplot(fig, use_container_width=True)
+        plt.close()
 
     # ---------- CLUSTER ANALYSIS ----------
     if 'cluster_id' in df.columns and col_stock_value:
