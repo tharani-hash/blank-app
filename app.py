@@ -1882,7 +1882,10 @@ elif eda_option == "Inventory Overview":
         if 'date_id' in df_time.columns:
             st.write(f"Debug: Sample date_id values: {df_time['date_id'].head()}")
         
-        df_time['date_id'] = pd.to_datetime(df_time['date_id'], errors='coerce')
+        # Fix date parsing for format D_YYYYMMDD
+        df_time['date_id'] = df_time['date_id'].astype(str)
+        df_time['date_id'] = df_time['date_id'].str.replace('D_', '')  # Remove D_ prefix
+        df_time['date_id'] = pd.to_datetime(df_time['date_id'], format='%Y%m%d', errors='coerce')
         df_time = df_time.dropna(subset=['date_id'])
         
         # Debug: Check after date processing
