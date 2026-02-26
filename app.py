@@ -1922,7 +1922,7 @@ elif eda_option == "Inventory Overview":
                 color='#2F75B5',
                 cornerRadiusEnd=6
             ).encode(
-                x=alt.X('year:O', title='Year'),
+                x=alt.X('year:Q', title='Year'),
                 y=alt.Y(f'{col_stock_value}:Q', title='Stock Value'),
                 tooltip=['year', col_stock_value]
             ).properties(
