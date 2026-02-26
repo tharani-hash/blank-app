@@ -2014,7 +2014,10 @@ elif eda_option == "Inventory Overview":
         st.components.v1.html(double_click_js, height=0)
         
         # Display chart
-        st.altair_chart(chart_data, use_container_width=True)
+        if 'chart_data' in locals() and chart_data is not None:
+            st.altair_chart(chart_data, use_container_width=True)
+        else:
+            st.warning("⚠️ No data available for Stock Value By Time chart")
 
     # ---------- STORE ANALYSIS ----------
     if 'store_id' in df.columns and col_stock_value:
@@ -2043,7 +2046,7 @@ elif eda_option == "Inventory Overview":
         )
 
         # Create Matplotlib chart with custom axis labels
-        fig, ax = plt.subplots(figsize=(12, 6))
+        fig, ax = plt.subplots(figsize=(16, 8))  # Increased figure size
         
         bars = ax.bar(stock_store.index.astype(str), stock_store.values, color='#2F75B5')
         
@@ -2054,8 +2057,15 @@ elif eda_option == "Inventory Overview":
         # Format y-axis with commas
         ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x:,.0f}'))
         
-        # Rotate x-axis labels for better readability
-        plt.xticks(rotation=45, ha='right', fontsize=12)
+        # Handle x-axis labels - show every nth label if too many stores
+        n_stores = len(stock_store)
+        if n_stores > 20:
+            step = max(1, n_stores // 15)  # Show max 15 labels
+            ax.set_xticks(range(0, n_stores, step))
+            ax.set_xticklabels(stock_store.index.astype(str)[::step], rotation=45, ha='right', fontsize=10)
+        else:
+            plt.xticks(rotation=45, ha='right', fontsize=12)
+        
         plt.yticks(fontsize=12)
         
         # Remove top and right spines for cleaner look
@@ -2097,7 +2107,41 @@ elif eda_option == "Inventory Overview":
             .sort_values(ascending=False)
         )
 
-        st.bar_chart(stock_cluster)
+        # Create Matplotlib chart with proper axis colors
+        fig, ax = plt.subplots(figsize=(12, 6))
+        
+        bars = ax.bar(stock_cluster.index.astype(str), stock_cluster.values, color='#2F75B5')
+        
+        ax.set_title('Stock Value By Cluster', fontsize=20, color='#2F75B5', pad=20)
+        ax.set_xlabel('Cluster ID', fontsize=14, color='black')  # Changed to black
+        ax.set_ylabel('Stock Value', fontsize=14, color='black')  # Changed to black
+        
+        # Format y-axis with commas
+        ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x:,.0f}'))
+        
+        # Set tick colors to black
+        ax.tick_params(axis='x', colors='black', labelsize=12)
+        ax.tick_params(axis='y', colors='black', labelsize=12)
+        
+        # Rotate x-axis labels for better readability
+        plt.xticks(rotation=45, ha='right')
+        
+        # Remove top and right spines for cleaner look
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        
+        # Set remaining spines to black for better visibility
+        ax.spines['left'].set_color('black')
+        ax.spines['bottom'].set_color('black')
+        
+        # Add grid for better readability
+        ax.grid(axis='y', alpha=0.3)
+        
+        plt.tight_layout()
+        
+        # Display in Streamlit
+        st.pyplot(fig, use_container_width=True)
+        plt.close()
 
 
 elif eda_option == "Sales Overview":
