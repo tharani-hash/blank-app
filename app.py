@@ -1907,6 +1907,9 @@ elif eda_option == "Inventory Overview":
             # Year-wise view - Altair chart with proper axis labels
             yearly_data = df_time.groupby('year')[col_stock_value].sum().reset_index()
             chart_title = "Stock Value by Year"
+            st.write(f"Debug: yearly_data = {yearly_data}")
+            st.write(f"Debug: yearly_data shape: {yearly_data.shape}")
+            st.write(f"Debug: yearly_data columns: {list(yearly_data.columns)}")
             chart_data = alt.Chart(yearly_data).mark_bar(
                 color='#2F75B5',
                 cornerRadiusEnd=6
