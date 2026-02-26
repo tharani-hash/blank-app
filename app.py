@@ -1900,19 +1900,8 @@ elif eda_option == "Inventory Overview":
         
         # Generate chart based on current drill level
         if st.session_state.drill_level == 'year':
-            # Year-wise view
-            yearly_data = df_filtered.groupby('year')[col_stock_value].sum().reset_index()
-            chart_data = alt.Chart(yearly_data).mark_bar(
-                color='#001F5C',
-                cornerRadiusEnd=6
-            ).encode(
-                x=alt.X('year:O', title='Year'),
-                y=alt.Y(f'{col_stock_value}:Q', title='Stock Value'),
-                tooltip=['year', col_stock_value]
-            ).properties(
-                height=400,
-                background='transparent'
-            )
+            # Year-wise view - simple bar chart
+            yearly_data = df_filtered.groupby('year')[col_stock_value].sum()
             chart_title = "Stock Value by Year"
             
         elif st.session_state.drill_level == 'quarter':
@@ -2014,7 +2003,13 @@ elif eda_option == "Inventory Overview":
         st.components.v1.html(double_click_js, height=0)
         
         # Display chart
-        if 'chart_data' in locals() and chart_data is not None:
+        if st.session_state.drill_level == 'year':
+            # Display simple bar chart for years
+            if 'yearly_data' in locals() and not yearly_data.empty:
+                st.bar_chart(yearly_data)
+            else:
+                st.warning("⚠️ No data available for Stock Value by Year")
+        elif 'chart_data' in locals() and chart_data is not None:
             st.altair_chart(chart_data, use_container_width=True)
         else:
             st.warning("⚠️ No data available for Stock Value By Time chart")
