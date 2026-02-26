@@ -1918,6 +1918,15 @@ elif eda_option == "Inventory Overview":
             st.write(f"Debug: yearly_data = {yearly_data}")
             st.write(f"Debug: yearly_data shape: {yearly_data.shape}")
             st.write(f"Debug: yearly_data columns: {list(yearly_data.columns)}")
+            st.write(f"Debug: yearly_data values: {yearly_data.values}")
+            st.write(f"Debug: stock_value column values: {yearly_data[col_stock_value].tolist()}")
+            st.write(f"Debug: any NaN in stock_value: {yearly_data[col_stock_value].isna().any()}")
+            st.write(f"Debug: any zeros in stock_value: {(yearly_data[col_stock_value] == 0).any()}")
+            
+            # Filter out NaN values
+            yearly_data = yearly_data.dropna(subset=[col_stock_value])
+            st.write(f"Debug: after dropping NaN, shape: {yearly_data.shape}")
+            
             chart_data = alt.Chart(yearly_data).mark_bar(
                 color='#00D05E',
                 cornerRadiusEnd=6
