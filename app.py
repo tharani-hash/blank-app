@@ -1873,14 +1873,40 @@ elif eda_option == "Inventory Overview":
         
         # Prepare time data
         df_time = df.copy()
+        
+        # Debug: Check original data
+        st.write(f"Debug: Original dataframe shape: {df_time.shape}")
+        st.write(f"Debug: date_id column exists: {'date_id' in df_time.columns}")
+        st.write(f"Debug: stock value column: {col_stock_value}")
+        
+        if 'date_id' in df_time.columns:
+            st.write(f"Debug: Sample date_id values: {df_time['date_id'].head()}")
+        
         df_time['date_id'] = pd.to_datetime(df_time['date_id'], errors='coerce')
         df_time = df_time.dropna(subset=['date_id'])
+        
+        # Debug: Check after date processing
+        st.write(f"Debug: After date processing shape: {df_time.shape}")
+        if len(df_time) > 0:
+            st.write(f"Debug: Sample processed dates: {df_time['date_id'].head()}")
         
         # Add time components
         df_time['year'] = df_time['date_id'].dt.year
         df_time['quarter'] = df_time['date_id'].dt.to_period('Q').astype(str)
         df_time['month'] = df_time['date_id'].dt.to_period('M').astype(str)
         df_time['week'] = df_time['date_id'].dt.isocalendar().week.astype(str) + '-' + df_time['year'].astype(str)
+        
+        # Debug: Check years extracted
+        if 'year' in df_time.columns:
+            st.write(f"Debug: Years extracted: {df_time['year'].unique()}")
+        
+        # Debug: Check stock value data
+        if col_stock_value and col_stock_value in df_time.columns:
+            st.write(f"Debug: Stock value column sample: {df_time[col_stock_value].head()}")
+            st.write(f"Debug: Stock value non-null count: {df_time[col_stock_value].notna().sum()}")
+        else:
+            st.write(f"Debug: Stock value column issue - col_stock_value: {col_stock_value}")
+            st.write(f"Debug: Available columns: {list(df_time.columns)}")
         
         # Filter data based on current drill selection
         if st.session_state.drill_selection and st.session_state.drill_level != 'year':
@@ -1901,7 +1927,17 @@ elif eda_option == "Inventory Overview":
         # Generate chart based on current drill level
         if st.session_state.drill_level == 'year':
             # Year-wise view - simple bar chart
-            yearly_data = df_time.groupby('year')[col_stock_value].sum()
+            st.write(f"Debug: Creating yearly data from df_time shape: {df_time.shape}")
+            st.write(f"Debug: df_time columns: {list(df_time.columns)}")
+            
+            if 'year' in df_time.columns and col_stock_value in df_time.columns:
+                yearly_data = df_time.groupby('year')[col_stock_value].sum()
+                st.write(f"Debug: yearly_data created: {yearly_data}")
+                st.write(f"Debug: yearly_data type: {type(yearly_data)}")
+            else:
+                st.write("Debug: Missing required columns for yearly data")
+                yearly_data = pd.Series(dtype=float)
+                
             chart_title = "Stock Value by Year"
             
         elif st.session_state.drill_level == 'quarter':
