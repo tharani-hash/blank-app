@@ -1772,7 +1772,7 @@ elif eda_option == "Inventory Overview":
         background-color:#2F75B5;
         padding:28px;
         border-radius:12px;
-        color:white;
+        color:black;
         font-size:16px;
         line-height:1.6;
         margin-bottom:20px;
