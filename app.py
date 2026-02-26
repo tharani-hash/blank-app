@@ -1839,6 +1839,14 @@ elif eda_option == "Inventory Overview":
     )
 
     # ---------- INTERACTIVE DRILL-DOWN TIME SERIES ANALYSIS ----------
+    # Column mapping for inventory data
+    col_stock_value = None
+    # Find stock value column
+    for col in ['stock_value', 'inventory_value', 'total_stock_value']:
+        if col in df.columns:
+            col_stock_value = col
+            break
+    
     if 'date_id' in df.columns and col_stock_value:
         st.markdown(
             """
