@@ -1919,7 +1919,7 @@ elif eda_option == "Inventory Overview":
             st.write(f"Debug: yearly_data shape: {yearly_data.shape}")
             st.write(f"Debug: yearly_data columns: {list(yearly_data.columns)}")
             chart_data = alt.Chart(yearly_data).mark_bar(
-                color='#2F75B5',
+                color='#00D05E',
                 cornerRadiusEnd=6
             ).encode(
                 x=alt.X('year:Q', title='Year'),
@@ -1930,6 +1930,8 @@ elif eda_option == "Inventory Overview":
                 height=400,
                 background='transparent'
             ).interactive()
+            
+            st.altair_chart(chart_data, use_container_width=True)
             
         elif st.session_state.drill_level == 'quarter':
             # Quarter-wise view
