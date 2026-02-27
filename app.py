@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import io
 import numpy as np
 import altair as alt
+import plotly.express as px 
 
 # ============================================================================
 # HTML TABLE RENDERING FUNCTION
@@ -1887,32 +1888,44 @@ elif eda_option == "Inventory Overview":
         if st.session_state.drill == 'year':
             yearly = df_time.groupby('year')[col_stock_value].sum().reset_index()
             
-            st.markdown("<p style='color:black; font-size:14px;'>Click on any year bar to see quarterly breakdown</p>", unsafe_allow_html=True)
+            st.markdown("<p style='color:black; font-size:14px;'>Click on any year bar to view quarterly breakdown</p>", unsafe_allow_html=True)
             
-            # Blue bars with black axis labels
-            chart = alt.Chart(yearly).mark_bar(
-                color='#2F75B5',
-                size=60
-            ).encode(
-                x=alt.X('year:O', 
-                        title='Year',
-                        axis=alt.Axis(labelColor='black', titleColor='black', labelFontSize=12, titleFontSize=14)),
-                y=alt.Y(f'{col_stock_value}:Q', 
-                        title='Stock Value',
-                        axis=alt.Axis(labelColor='black', titleColor='black', labelFontSize=12, titleFontSize=14)),
-                tooltip=['year', col_stock_value]
+            # Create Plotly bar chart with click events
+            import plotly.graph_objects as go
+            
+            fig = go.Figure(data=[
+                go.Bar(
+                    x=yearly['year'],
+                    y=yearly[col_stock_value],
+                    marker_color='#2F75B5',
+                    text=[f"${v/1e6:.1f}M" for v in yearly[col_stock_value]],
+                    textposition='outside',
+                    hovertemplate='Year: %{x}<br>Stock Value: $%{y:,.0f}<extra></extra>'
+                )
+            ])
+            
+            fig.update_layout(
+                xaxis_title='Year',
+                yaxis_title='Stock Value',
+                xaxis=dict(tickfont=dict(color='black', size=12), titlefont=dict(color='black', size=14)),
+                yaxis=dict(tickfont=dict(color='black', size=12), titlefont=dict(color='black', size=14)),
+                plot_bgcolor='white',
+                paper_bgcolor='white',
+                showlegend=False,
+                height=400,
+                margin=dict(t=30, b=30)
             )
             
-            # Use on_select to capture clicks on the chart
-            event = st.altair_chart(chart, use_container_width=True, on_select="single", key="year_chart")
+            # Display chart with click handling
+            selected_year = st.plotly_chart(fig, use_container_width=True, key="year_chart", on_select="rerun", selection_mode="points")
             
-            # Handle selection when user clicks on a bar
-            if event and event.get('selection'):
-                selected_year = event['selection'].get('year')
-                if selected_year:
-                    st.session_state.selected_year = str(selected_year)
-                    st.session_state.drill = 'quarter'
-                    st.rerun()
+            # Check if a bar was clicked
+            if selected_year and selected_year.selection and selected_year.selection.points:
+                point_idx = selected_year.selection.points[0]
+                clicked_year = str(yearly.iloc[point_idx]['year'])
+                st.session_state.selected_year = clicked_year
+                st.session_state.drill = 'quarter'
+                st.rerun()
         
         elif st.session_state.drill == 'quarter':
             selected_year = st.session_state.get('selected_year')
