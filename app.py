@@ -1866,20 +1866,24 @@ elif eda_option == "Inventory Overview":
                 unsafe_allow_html=True
             )
         
-        # Prepare time data
-        df_time = df.copy()
+        # Prepare time data (cached to avoid reprocessing)
+        @st.cache_data(ttl=300)  # Cache for 5 minutes
+        def prepare_time_data(df):
+            df_time = df.copy()
+            # Fix date parsing for format D_YYYYMMDD
+            df_time['date_id'] = df_time['date_id'].astype(str)
+            df_time['date_id'] = df_time['date_id'].str.replace('D_', '')
+            df_time['date_id'] = pd.to_datetime(df_time['date_id'], format='%Y%m%d', errors='coerce')
+            df_time = df_time.dropna(subset=['date_id'])
+            
+            # Add time components
+            df_time['year'] = df_time['date_id'].dt.year.astype(str)
+            df_time['quarter'] = df_time['date_id'].dt.to_period('Q').astype(str)
+            df_time['month'] = df_time['date_id'].dt.to_period('M').astype(str)
+            df_time['week'] = df_time['date_id'].dt.isocalendar().week.astype(str)
+            return df_time
         
-        # Fix date parsing for format D_YYYYMMDD
-        df_time['date_id'] = df_time['date_id'].astype(str)
-        df_time['date_id'] = df_time['date_id'].str.replace('D_', '')
-        df_time['date_id'] = pd.to_datetime(df_time['date_id'], format='%Y%m%d', errors='coerce')
-        df_time = df_time.dropna(subset=['date_id'])
-        
-        # Add time components
-        df_time['year'] = df_time['date_id'].dt.year.astype(str)
-        df_time['quarter'] = df_time['date_id'].dt.to_period('Q').astype(str)
-        df_time['month'] = df_time['date_id'].dt.to_period('M').astype(str)
-        df_time['week'] = df_time['date_id'].dt.isocalendar().week.astype(str)
+        df_time = prepare_time_data(df)
         
         # Initialize session state for drill-down
         if 'drill' not in st.session_state:
