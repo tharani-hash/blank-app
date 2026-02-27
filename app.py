@@ -1848,8 +1848,22 @@ elif eda_option == "Inventory Overview":
             break
     
     if 'date_id' in df.columns and col_stock_value:
+        # Blue header matching Stock Value By Store style
         st.markdown(
-            "<h2 style='color:black; font-weight:900; text-align:center;'>Stock Value By Time</h2>",
+            """
+            <div style="
+                background-color:#2F75B5;
+                padding:18px 25px;
+                border-radius:10px;
+                font-size:20px;
+                color:white;
+                margin-top:20px;
+                margin-bottom:10px;
+                text-align:center;
+            ">
+                <b>Stock Value By Time</b>
+            </div>
+            """,
             unsafe_allow_html=True
         )
         
@@ -1858,11 +1872,11 @@ elif eda_option == "Inventory Overview":
         
         # Fix date parsing for format D_YYYYMMDD
         df_time['date_id'] = df_time['date_id'].astype(str)
-        df_time['date_id'] = df_time['date_id'].str.replace('D_', '')  # Remove D_ prefix
+        df_time['date_id'] = df_time['date_id'].str.replace('D_', '')
         df_time['date_id'] = pd.to_datetime(df_time['date_id'], format='%Y%m%d', errors='coerce')
         df_time = df_time.dropna(subset=['date_id'])
         
-        # Add time components
+        # Add time components as strings
         df_time['year'] = df_time['date_id'].dt.year.astype(str)
         df_time['quarter'] = df_time['date_id'].dt.to_period('Q').astype(str)
         
@@ -1879,36 +1893,54 @@ elif eda_option == "Inventory Overview":
                 clear=False
             )
             
-            chart = alt.Chart(yearly).mark_bar(color='black').encode(
-                x='year:O',
-                y=alt.Y(f'{col_stock_value}:Q', title='Stock Value'),
+            # Blue bars with black axis labels
+            chart = alt.Chart(yearly).mark_bar(
+                color='#2F75B5',
+                size=60
+            ).encode(
+                x=alt.X('year:O', 
+                        title='Year',
+                        axis=alt.Axis(labelColor='black', titleColor='black', labelFontSize=12, titleFontSize=14)),
+                y=alt.Y(f'{col_stock_value}:Q', 
+                        title='Stock Value',
+                        axis=alt.Axis(labelColor='black', titleColor='black', labelFontSize=12, titleFontSize=14)),
                 tooltip=['year', col_stock_value]
             ).add_params(selection)
             
             st.altair_chart(chart, use_container_width=True)
             
-            # Handle selection
-            if selection and hasattr(selection, 'to_dict') and selection.to_dict().get('year'):
-                selected_year = selection.to_dict()['year'][0] if selection.to_dict()['year'] else None
-                if selected_year:
-                    st.session_state.selected_year = selected_year
-                    st.session_state.drill = 'quarter'
-                    st.rerun()
+            # Handle drill-down
+            if selection and hasattr(selection, 'to_dict'):
+                sel_dict = selection.to_dict()
+                if sel_dict.get('year'):
+                    selected_year = sel_dict['year'][0] if isinstance(sel_dict['year'], list) else sel_dict['year']
+                    if selected_year:
+                        st.session_state.selected_year = selected_year
+                        st.session_state.drill = 'quarter'
+                        st.rerun()
         
         elif st.session_state.drill == 'quarter':
             selected_year = st.session_state.get('selected_year')
             quarter_data = df_time[df_time['year'] == selected_year]
             quarter_data = quarter_data.groupby('quarter')[col_stock_value].sum().reset_index()
             
-            chart = alt.Chart(quarter_data).mark_bar(color='black').encode(
-                x='quarter:O',
-                y=alt.Y(f'{col_stock_value}:Q', title='Stock Value'),
+            # Blue bars with black axis labels
+            chart = alt.Chart(quarter_data).mark_bar(
+                color='#2F75B5',
+                size=60
+            ).encode(
+                x=alt.X('quarter:O', 
+                        title='Quarter',
+                        axis=alt.Axis(labelColor='black', titleColor='black', labelFontSize=12, titleFontSize=14)),
+                y=alt.Y(f'{col_stock_value}:Q', 
+                        title='Stock Value',
+                        axis=alt.Axis(labelColor='black', titleColor='black', labelFontSize=12, titleFontSize=14)),
                 tooltip=['quarter', col_stock_value]
             )
             
             st.altair_chart(chart, use_container_width=True)
             
-            # Add back button
+            # Back button
             if st.button('← Back to Year'):
                 st.session_state.drill = 'year'
                 st.rerun()
