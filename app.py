@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 import io
 import numpy as np
 import altair as alt
-import plotly.express as px
 
 # ============================================================================
 # HTML TABLE RENDERING FUNCTION
@@ -1888,52 +1887,122 @@ elif eda_option == "Inventory Overview":
         if st.session_state.drill == 'year':
             yearly = df_time.groupby('year')[col_stock_value].sum().reset_index()
             
-            fig = px.bar(yearly, x='year', y=col_stock_value, text_auto='.2s')
+            # Prepare data for JSON
+            yearly_json = yearly.to_json(orient='records')
+            col_name = col_stock_value
             
-            # Blue bars, black labels
-            fig.update_traces(marker_color='#2F75B5')
-            fig.update_layout(
-                xaxis_title='Year',
-                yaxis_title='Stock Value',
-                clickmode='event+select',
-                plot_bgcolor='white',
-                paper_bgcolor='white'
-            )
-            fig.update_xaxes(tickfont=dict(color='black', size=12), titlefont=dict(color='black', size=14))
-            fig.update_yaxes(tickfont=dict(color='black', size=12), titlefont=dict(color='black', size=14))
+            # Create HTML with Vega-Lite chart and double-click handling
+            html_content = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+                <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+                <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+                <style>
+                    body {{ margin: 0; padding: 0; font-family: Arial, sans-serif; }}
+                    #chart {{ width: 100%; height: 400px; }}
+                    .info {{ padding: 10px; color: black; font-size: 14px; }}
+                </style>
+            </head>
+            <body>
+                <div class="info"><b>Double-click</b> on any year bar to view quarterly breakdown</div>
+                <div id="chart"></div>
+                
+                <script>
+                    const data = {yearly_json};
+                    const spec = {{
+                        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+                        "data": {{"values": data}},
+                        "mark": {{"type": "bar", "color": "#2F75B5", "size": 60}},
+                        "encoding": {{
+                            "x": {{
+                                "field": "year", 
+                                "type": "ordinal", 
+                                "title": "Year",
+                                "axis": {{"labelColor": "black", "titleColor": "black", "labelFontSize": 12, "titleFontSize": 14}}
+                            }},
+                            "y": {{
+                                "field": "{col_name}", 
+                                "type": "quantitative", 
+                                "title": "Stock Value",
+                                "axis": {{"labelColor": "black", "titleColor": "black", "labelFontSize": 12, "titleFontSize": 14}}
+                            }},
+                            "tooltip": [
+                                {{"field": "year", "type": "ordinal"}},
+                                {{"field": "{col_name}", "type": "quantitative"}}
+                            ]
+                        }},
+                        "selection": {{
+                            "select": {{
+                                "type": "single",
+                                "on": "click",
+                                "fields": ["year"],
+                                "empty": "none"
+                            }}
+                        }}
+                    }};
+                    
+                    vegaEmbed('#chart', spec, {{actions: false}}).then(result => {{
+                        const view = result.view;
+                        let clickCount = 0;
+                        let clickedYear = null;
+                        
+                        view.addEventListener('click', function(event, item) {{
+                            if (item && item.datum && item.datum.year) {{
+                                clickCount++;
+                                clickedYear = item.datum.year;
+                                
+                                if (clickCount === 1) {{
+                                    setTimeout(() => {{
+                                        if (clickCount === 2 && clickedYear) {{
+                                            // Double-click detected - send message to Streamlit
+                                            window.parent.postMessage({{
+                                                type: 'streamlit:setComponentValue',
+                                                value: JSON.stringify({{year: clickedYear.toString()}})
+                                            }}, '*');
+                                        }}
+                                        clickCount = 0;
+                                        clickedYear = null;
+                                    }}, 300);
+                                }}
+                            }}
+                        }});
+                    }});
+                </script>
+            </body>
+            </html>
+            """
             
-            st.markdown("<p style='color:black; font-size:14px;'>Click on any year bar to view quarterly breakdown</p>", unsafe_allow_html=True)
+            # Use Streamlit's HTML component with height
+            import streamlit.components.v1 as components
+            result = components.html(html_content, height=450, key='year_chart_html')
             
-            # Display chart with click handling
-            selected = st.plotly_chart(fig, use_container_width=True, key='year_chart', on_select='rerun', selection_mode='points')
-            
-            # Check if a bar was clicked
-            if selected and selected.selection and selected.selection.points:
-                point_idx = selected.selection.points[0]
-                clicked_year = str(yearly.iloc[point_idx]['year'])
-                st.session_state.selected_year = clicked_year
-                st.session_state.drill = 'quarter'
-                st.rerun()
+            # Process the returned value from JavaScript
+            if result:
+                try:
+                    import json
+                    data = json.loads(result)
+                    if data and 'year' in data:
+                        st.session_state.selected_year = data['year']
+                        st.session_state.drill = 'quarter'
+                        st.rerun()
+                except:
+                    pass
         
         elif st.session_state.drill == 'quarter':
             selected_year = st.session_state.get('selected_year')
             quarter_data = df_time[df_time['year'] == selected_year]
             quarter_data = quarter_data.groupby('quarter')[col_stock_value].sum().reset_index()
             
-            fig = px.bar(quarter_data, x='quarter', y=col_stock_value, text_auto='.2s')
-            
-            # Blue bars, black labels
-            fig.update_traces(marker_color='#2F75B5')
-            fig.update_layout(
-                xaxis_title='Quarter',
-                yaxis_title='Stock Value',
-                plot_bgcolor='white',
-                paper_bgcolor='white'
+            # Altair chart with blue bars and black labels
+            chart = alt.Chart(quarter_data).mark_bar(color='#2F75B5', size=60).encode(
+                x=alt.X('quarter:O', title='Quarter', axis=alt.Axis(labelColor='black', titleColor='black', labelFontSize=12, titleFontSize=14)),
+                y=alt.Y(f'{col_stock_value}:Q', title='Stock Value', axis=alt.Axis(labelColor='black', titleColor='black', labelFontSize=12, titleFontSize=14)),
+                tooltip=['quarter', col_stock_value]
             )
-            fig.update_xaxes(tickfont=dict(color='black', size=12), titlefont=dict(color='black', size=14))
-            fig.update_yaxes(tickfont=dict(color='black', size=12), titlefont=dict(color='black', size=14))
             
-            st.plotly_chart(fig, use_container_width=True)
+            st.altair_chart(chart, use_container_width=True)
             
             # Back button
             if st.button('← Back to Year'):
