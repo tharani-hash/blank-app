@@ -1899,23 +1899,18 @@ elif eda_option == "Inventory Overview":
             fig = px.bar(yearly, x='year', y=col_stock_value)
             fig.update_traces(marker_color='#2F75B5', selector=dict(type='bar'))
             
-            st.markdown("<p style='color:black; font-size:14px;'><b>Click</b> on any year bar to view quarterly breakdown</p>", unsafe_allow_html=True)
+            st.markdown("<p style='color:black; font-size:14px;'><b>Select</b> a year to view quarterly breakdown</p>", unsafe_allow_html=True)
             
-            # Use on_select for click handling
-            selected = st.plotly_chart(fig, use_container_width=True, key='year_chart', on_select='rerun', selection_mode='points')
+            st.plotly_chart(fig, use_container_width=True)
             
-            # Handle selection
-            if selected and hasattr(selected, 'selection') and selected.selection:
-                try:
-                    points = selected.selection.points
-                    if points and len(points) > 0:
-                        point_idx = points[0]
-                        clicked_year = str(yearly.iloc[point_idx]['year'])
-                        st.session_state.selected_year = clicked_year
-                        st.session_state.drill = 'quarter'
-                        st.rerun()
-                except:
-                    pass
+            # Simple year selection
+            year_options = ['-- Select Year --'] + yearly['year'].tolist()
+            selected_year = st.selectbox('Choose Year:', year_options, key='year_select')
+            
+            if selected_year != '-- Select Year --':
+                st.session_state.selected_year = selected_year
+                st.session_state.drill = 'quarter'
+                st.rerun()
         
         elif st.session_state.drill == 'quarter':
             selected_year = st.session_state.get('selected_year')
@@ -1926,23 +1921,18 @@ elif eda_option == "Inventory Overview":
             fig = px.bar(quarter_data, x='quarter', y=col_stock_value)
             fig.update_traces(marker_color='#2F75B5', selector=dict(type='bar'))
             
-            st.markdown(f"<p style='color:black; font-size:14px;'><b>Click</b> on any quarter bar to view monthly breakdown for {selected_year}</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='color:black; font-size:14px;'><b>Select</b> a quarter to view monthly breakdown for {selected_year}</p>", unsafe_allow_html=True)
             
-            # Use on_select for click handling
-            selected = st.plotly_chart(fig, use_container_width=True, key='quarter_chart', on_select='rerun', selection_mode='points')
+            st.plotly_chart(fig, use_container_width=True)
             
-            # Handle selection
-            if selected and hasattr(selected, 'selection') and selected.selection:
-                try:
-                    points = selected.selection.points
-                    if points and len(points) > 0:
-                        point_idx = points[0]
-                        clicked_quarter = str(quarter_data.iloc[point_idx]['quarter'])
-                        st.session_state.selected_quarter = clicked_quarter
-                        st.session_state.drill = 'month'
-                        st.rerun()
-                except:
-                    pass
+            # Simple quarter selection
+            quarter_options = ['-- Select Quarter --'] + quarter_data['quarter'].tolist()
+            selected_quarter = st.selectbox('Choose Quarter:', quarter_options, key='quarter_select')
+            
+            if selected_quarter != '-- Select Quarter --':
+                st.session_state.selected_quarter = selected_quarter
+                st.session_state.drill = 'month'
+                st.rerun()
         
         elif st.session_state.drill == 'month':
             selected_year = st.session_state.get('selected_year')
@@ -1954,23 +1944,18 @@ elif eda_option == "Inventory Overview":
             fig = px.bar(month_data, x='month', y=col_stock_value)
             fig.update_traces(marker_color='#2F75B5', selector=dict(type='bar'))
             
-            st.markdown(f"<p style='color:black; font-size:14px;'><b>Click</b> on any month bar to view weekly breakdown for {selected_year} Q{selected_quarter[-1]}</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='color:black; font-size:14px;'><b>Select</b> a month to view weekly breakdown for {selected_year} Q{selected_quarter[-1]}</p>", unsafe_allow_html=True)
             
-            # Use on_select for click handling
-            selected = st.plotly_chart(fig, use_container_width=True, key='month_chart', on_select='rerun', selection_mode='points')
+            st.plotly_chart(fig, use_container_width=True)
             
-            # Handle selection
-            if selected and hasattr(selected, 'selection') and selected.selection:
-                try:
-                    points = selected.selection.points
-                    if points and len(points) > 0:
-                        point_idx = points[0]
-                        clicked_month = str(month_data.iloc[point_idx]['month'])
-                        st.session_state.selected_month = clicked_month
-                        st.session_state.drill = 'week'
-                        st.rerun()
-                except:
-                    pass
+            # Simple month selection
+            month_options = ['-- Select Month --'] + month_data['month'].tolist()
+            selected_month = st.selectbox('Choose Month:', month_options, key='month_select')
+            
+            if selected_month != '-- Select Month --':
+                st.session_state.selected_month = selected_month
+                st.session_state.drill = 'week'
+                st.rerun()
         
         elif st.session_state.drill == 'week':
             selected_year = st.session_state.get('selected_year')
@@ -1998,29 +1983,20 @@ elif eda_option == "Inventory Overview":
             fig = px.bar(week_data, x='week', y=col_stock_value)
             fig.update_traces(marker_color='#2F75B5', selector=dict(type='bar'))
             
-            st.markdown(f"<p style='color:black; font-size:14px;'><b>Click</b> on any week bar to reset to year view</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='color:black; font-size:14px;'><b>Select</b> a week to reset to year view</p>", unsafe_allow_html=True)
             
-            # Use on_select for click handling
-            selected = st.plotly_chart(fig, use_container_width=True, key='week_chart', on_select='rerun', selection_mode='points')
+            st.plotly_chart(fig, use_container_width=True)
             
-            # Test: Show if any click was detected
-            if selected:
-                st.write("Click detected!")
-                st.write(f"Selection object: {selected}")
+            # Simple reset option
+            reset_options = ['-- Continue Viewing --', '← Reset to Year View']
+            selected_action = st.selectbox('Action:', reset_options, key='week_select')
             
-            # Handle selection - reset to year view
-            if selected and hasattr(selected, 'selection') and selected.selection:
-                try:
-                    points = selected.selection.points
-                    if points and len(points) > 0:
-                        # Reset all drill-down states
-                        st.session_state.drill = 'year'
-                        st.session_state.selected_year = None
-                        st.session_state.selected_quarter = None
-                        st.session_state.selected_month = None
-                        st.rerun()
-                except:
-                    pass
+            if selected_action == '← Reset to Year View':
+                st.session_state.drill = 'year'
+                st.session_state.selected_year = None
+                st.session_state.selected_quarter = None
+                st.session_state.selected_month = None
+                st.rerun()
 
     # ---------- STORE ANALYSIS ----------
     if 'store_id' in df.columns and col_stock_value:
