@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 import io
 import numpy as np
 import altair as alt
-import plotly.express as px
 
 # ============================================================================
 # HTML TABLE RENDERING FUNCTION
@@ -70,7 +69,7 @@ def render_html_table(df, title=None, max_height=300):
     '''
     
     if title:
-        full_html = f"### 📊 {title}" + full_html
+        full_html = f"### {title}" + full_html
     
     return full_html
 
@@ -229,7 +228,7 @@ st.markdown("""
         { background-color: #2F75B5;
         border-radius: 20px; 
         border: 1px solid #9EDAD0; 
-        overflow: hidden; /* 🔑 fixes unfinished edges */ }
+        overflow: hidden; /* fixes unfinished edges */ }
     /* Hide expander header completely */
     div[data-testid="stExpander"]:nth-of-type(1)
              summary { display: none; }
@@ -431,10 +430,10 @@ st.markdown(
         <li>Optimization models for transfer decisions</li>
     </ul>
 
-    <h4 style="margin-top:22px;">❓ Why This Matters</h4>
+    <h4 style="margin-top:22px;">Why This Matters</h4>
     
     <div style="background:#2F75B5; padding:15px; border-radius:8px; margin:15px 0;">
-        <h5 style="margin:0; color:white;">🚨 The Retail Problem</h5>
+        <h5 style="margin:0; color:white;">The Retail Problem</h5>
         <ul style="color:white; margin:10px 0 0 20px;">
             <li>Inventory is capital locked on shelves</li>
             <li>Overstock → markdowns & wastage</li>
@@ -443,7 +442,7 @@ st.markdown(
         </ul>
     </div>
     <div style="background:#2F75B5; padding:15px; border-radius:8px;">
-        <h5 style="margin:0; color:white;">🚀 The AI Advantage</h5>
+        <h5 style="margin:0; color:white;">The AI Advantage</h5>
         <p style="color:white; margin:10px 0;">Transforms reactive replenishment into proactive rebalancing:</p>
         <ul style="color:white; margin:0 0 0 20px;">
             <li>Identify excess stock early</li>
@@ -543,9 +542,9 @@ if "df" not in st.session_state:
     st.session_state.df = None
 
 # Load Button
-if st.button("📊 Load Data"):
+if st.button("Load Data"):
     st.session_state.df = load_data()
-    st.success("✅ Data loaded successfully!")
+    st.success("Data loaded successfully!")
 
 # Show preview if loaded
 df = st.session_state.df
@@ -623,7 +622,7 @@ This step guarantees that downstream models are trained on
 
 # Safety check
 if st.session_state.df is None:
-    st.warning("⚠ Load data first.")
+    st.warning("Load data first.")
     st.stop()
 
 df = st.session_state.df
@@ -1440,7 +1439,7 @@ alt.themes.enable("transparent_theme")
 # ============================================================
 
 if not st.session_state.preprocessing_completed:
-    st.info("ℹ Please apply at least one data pre-processing step to unlock EDA.")
+    st.info("Please apply at least one data pre-processing step to unlock EDA.")
     st.stop()
 
 st.markdown(
@@ -1603,7 +1602,7 @@ if eda_option is None:
     st.stop()
 
 # ============================================================
-# EDA ROUTER (⚠️ DO NOT BREAK THIS STRUCTURE)
+# EDA ROUTER (DO NOT BREAK THIS STRUCTURE)
 # ============================================================
 
 if eda_option == "Data Quality Overview":
@@ -1839,7 +1838,7 @@ elif eda_option == "Inventory Overview":
         unsafe_allow_html=True
     )
 
-    # ---------- INTERACTIVE DRILL-DOWN TIME SERIES ANALYSIS ----------
+    # ---------- STOCK VALUE BY TIME ----------
     # Column mapping for inventory data
     col_stock_value = None
     # Find stock value column
@@ -1849,7 +1848,6 @@ elif eda_option == "Inventory Overview":
             break
     
     if 'date_id' in df.columns and col_stock_value:
-        # Blue header matching Stock Value By Store style
         st.markdown(
             """
             <div style="
@@ -1865,8 +1863,8 @@ elif eda_option == "Inventory Overview":
                 <b>Stock Value By Time</b>
             </div>
             """,
-            unsafe_allow_html=True
-        )
+                unsafe_allow_html=True
+            )
         
         # Prepare time data
         df_time = df.copy()
@@ -1877,127 +1875,18 @@ elif eda_option == "Inventory Overview":
         df_time['date_id'] = pd.to_datetime(df_time['date_id'], format='%Y%m%d', errors='coerce')
         df_time = df_time.dropna(subset=['date_id'])
         
-        # Add time components as strings
+        # Add time components
         df_time['year'] = df_time['date_id'].dt.year.astype(str)
         df_time['quarter'] = df_time['date_id'].dt.to_period('Q').astype(str)
         df_time['month'] = df_time['date_id'].dt.to_period('M').astype(str)
         
-        # Initialize session state for drill-down
-        if 'drill' not in st.session_state:
-            st.session_state.drill = 'year'
-        if 'selected_year' not in st.session_state:
-            st.session_state.selected_year = None
-        if 'selected_quarter' not in st.session_state:
-            st.session_state.selected_quarter = None
-        if 'selected_month' not in st.session_state:
-            st.session_state.selected_month = None
+        # Yearly chart
+        yearly = df_time.groupby('year')[col_stock_value].sum().reset_index()
+        fig = px.bar(yearly, x='year', y=col_stock_value)
+        fig.update_traces(marker_color='#2F75B5', selector=dict(type='bar'))
         
-        if st.session_state.drill == 'year':
-            yearly = df_time.groupby('year')[col_stock_value].sum().reset_index()
-            
-            # Simple Plotly chart with minimal config
-            fig = px.bar(yearly, x='year', y=col_stock_value)
-            fig.update_traces(marker_color='#2F75B5', selector=dict(type='bar'))
-            
-            st.markdown("<p style='color:black; font-size:14px;'><b>Select</b> a year to view quarterly breakdown</p>", unsafe_allow_html=True)
-            
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # Simple year selection
-            year_options = ['-- Select Year --'] + yearly['year'].tolist()
-            selected_year = st.selectbox('Choose Year:', year_options, key='year_select')
-            
-            if selected_year != '-- Select Year --':
-                st.session_state.selected_year = selected_year
-                st.session_state.drill = 'quarter'
-                st.rerun()
-        
-        elif st.session_state.drill == 'quarter':
-            selected_year = st.session_state.get('selected_year')
-            quarter_data = df_time[df_time['year'] == selected_year]
-            quarter_data = quarter_data.groupby('quarter')[col_stock_value].sum().reset_index()
-            
-            # Simple Plotly chart with blue bars
-            fig = px.bar(quarter_data, x='quarter', y=col_stock_value)
-            fig.update_traces(marker_color='#2F75B5', selector=dict(type='bar'))
-            
-            st.markdown(f"<p style='color:black; font-size:14px;'><b>Select</b> a quarter to view monthly breakdown for {selected_year}</p>", unsafe_allow_html=True)
-            
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # Simple quarter selection
-            quarter_options = ['-- Select Quarter --'] + quarter_data['quarter'].tolist()
-            selected_quarter = st.selectbox('Choose Quarter:', quarter_options, key='quarter_select')
-            
-            if selected_quarter != '-- Select Quarter --':
-                st.session_state.selected_quarter = selected_quarter
-                st.session_state.drill = 'month'
-                st.rerun()
-        
-        elif st.session_state.drill == 'month':
-            selected_year = st.session_state.get('selected_year')
-            selected_quarter = st.session_state.get('selected_quarter')
-            month_data = df_time[(df_time['year'] == selected_year) & (df_time['quarter'] == selected_quarter)]
-            month_data = month_data.groupby('month')[col_stock_value].sum().reset_index()
-            
-            # Simple Plotly chart with blue bars
-            fig = px.bar(month_data, x='month', y=col_stock_value)
-            fig.update_traces(marker_color='#2F75B5', selector=dict(type='bar'))
-            
-            st.markdown(f"<p style='color:black; font-size:14px;'><b>Select</b> a month to view weekly breakdown for {selected_year} Q{selected_quarter[-1]}</p>", unsafe_allow_html=True)
-            
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # Simple month selection
-            month_options = ['-- Select Month --'] + month_data['month'].tolist()
-            selected_month = st.selectbox('Choose Month:', month_options, key='month_select')
-            
-            if selected_month != '-- Select Month --':
-                st.session_state.selected_month = selected_month
-                st.session_state.drill = 'week'
-                st.rerun()
-        
-        elif st.session_state.drill == 'week':
-            selected_year = st.session_state.get('selected_year')
-            selected_quarter = st.session_state.get('selected_quarter')
-            selected_month = st.session_state.get('selected_month')
-            
-            # Add week column (only once)
-            if 'week' not in df_time.columns:
-                df_time['week'] = df_time['date_id'].dt.isocalendar().week.astype(str)
-            
-            # Simple filtering for week data
-            week_data = df_time[
-                (df_time['year'] == selected_year) & 
-                (df_time['quarter'] == selected_quarter) & 
-                (df_time['month'] == selected_month)
-            ]
-            
-            # If no data, show all weeks
-            if week_data.empty:
-                week_data = df_time.copy()
-            
-            week_data = week_data.groupby('week')[col_stock_value].sum().reset_index()
-            
-            # Simple Plotly chart with blue bars
-            fig = px.bar(week_data, x='week', y=col_stock_value)
-            fig.update_traces(marker_color='#2F75B5', selector=dict(type='bar'))
-            
-            st.markdown(f"<p style='color:black; font-size:14px;'><b>Select</b> a week to reset to year view</p>", unsafe_allow_html=True)
-            
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # Simple reset option
-            reset_options = ['-- Continue Viewing --', '← Reset to Year View']
-            selected_action = st.selectbox('Action:', reset_options, key='week_select')
-            
-            if selected_action == '← Reset to Year View':
-                st.session_state.drill = 'year'
-                st.session_state.selected_year = None
-                st.session_state.selected_quarter = None
-                st.session_state.selected_month = None
-                st.rerun()
-
+        st.markdown("<p style='color:black; font-size:14px;'>Yearly stock values</p>", unsafe_allow_html=True)
+        st.plotly_chart(fig, use_container_width=True)
     # ---------- STORE ANALYSIS ----------
     if 'store_id' in df.columns and col_stock_value:
         st.markdown(
@@ -2728,7 +2617,7 @@ elif eda_option == "Product-Level Analysis":
     
     # Check if required columns exist
     if not safe_cols['product']:
-        st.error("❌ Product column not found. Available columns: " + ", ".join(df.columns))
+        st.error("Product column not found. Available columns: " + ", ".join(df.columns))
         st.stop()
     
     # Use safe column mapping with fallbacks
@@ -2741,7 +2630,7 @@ elif eda_option == "Product-Level Analysis":
     available_cols = [col for col in [col_qty, col_revenue, col_profit] if col in df.columns]
     
     if len(available_cols) == 0:
-        st.warning("⚠️ No numeric columns found for aggregation. Skipping product metrics.")
+        st.warning("No numeric columns found for aggregation. Skipping product metrics.")
         product_metrics = None
     else:
         # Create aggregation dictionary only with available columns
@@ -2823,7 +2712,7 @@ elif eda_option == "Product-Level Analysis":
 
         fig1, ax1 = plt.subplots(figsize=(7, 4))
 
-        # 🔑 GREEN THEME
+        # GREEN THEME
         fig1.patch.set_facecolor(GREEN_BG)
         ax1.set_facecolor(GREEN_BG)
         fig1.subplots_adjust(
@@ -2852,7 +2741,7 @@ elif eda_option == "Product-Level Analysis":
             st.pyplot(fig1)
             plt.close(fig1)
         else:
-            st.warning("⚠️ No revenue data available for product revenue chart")
+            st.warning("No revenue data available for product revenue chart")
 
 
     # ---------- PLOT 2: Demand vs Profitability ----------
