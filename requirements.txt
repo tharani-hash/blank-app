@@ -8,3 +8,4 @@ scipy
 jupyter
 ipython
 mysql-connector-python
+plotly>=5.15.0
