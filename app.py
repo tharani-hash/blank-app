@@ -1880,6 +1880,13 @@ elif eda_option == "Inventory Overview":
         df_time['quarter'] = df_time['date_id'].dt.to_period('Q').astype(str)
         df_time['month'] = df_time['date_id'].dt.to_period('M').astype(str)
         
+        # Find stock value column (ensure it's defined)
+        col_stock_value = None
+        for col in ['stock_value', 'inventory_value', 'total_stock_value']:
+            if col in df_time.columns:
+                col_stock_value = col
+                break
+        
         # Yearly chart
         yearly = df_time.groupby('year')[col_stock_value].sum().reset_index()
         fig = px.bar(yearly, x='year', y=col_stock_value)
