@@ -1887,11 +1887,8 @@ elif eda_option == "Inventory Overview":
         if st.session_state.drill == 'year':
             yearly = df_time.groupby('year')[col_stock_value].sum().reset_index()
             
-            selection = alt.selection_point(
-                fields=['year'],
-                on='dblclick',
-                clear=False
-            )
+            # Create clickable year chart using buttons for each bar
+            st.markdown("<p style='color:black; font-size:14px;'>Double-click on any year bar to see quarterly breakdown</p>", unsafe_allow_html=True)
             
             # Blue bars with black axis labels
             chart = alt.Chart(yearly).mark_bar(
@@ -1905,17 +1902,17 @@ elif eda_option == "Inventory Overview":
                         title='Stock Value',
                         axis=alt.Axis(labelColor='black', titleColor='black', labelFontSize=12, titleFontSize=14)),
                 tooltip=['year', col_stock_value]
-            ).add_params(selection)
+            )
             
             st.altair_chart(chart, use_container_width=True)
             
-            # Handle drill-down
-            if selection and hasattr(selection, 'to_dict'):
-                sel_dict = selection.to_dict()
-                if sel_dict.get('year'):
-                    selected_year = sel_dict['year'][0] if isinstance(sel_dict['year'], list) else sel_dict['year']
-                    if selected_year:
-                        st.session_state.selected_year = selected_year
+            # Create buttons for each year below the chart for drill-down
+            st.markdown("<p style='color:black; font-size:12px; margin-top:10px;'>Click a year to view quarters:</p>", unsafe_allow_html=True)
+            year_cols = st.columns(len(yearly))
+            for idx, (_, row) in enumerate(yearly.iterrows()):
+                with year_cols[idx]:
+                    if st.button(f"📅 {row['year']}", key=f"year_{row['year']}"):
+                        st.session_state.selected_year = str(row['year'])
                         st.session_state.drill = 'quarter'
                         st.rerun()
         
