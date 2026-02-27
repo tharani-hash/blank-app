@@ -1567,8 +1567,7 @@ def nav_button(label, value):
             st.session_state.eda_option = value
             st.rerun()
 
-with st.expander(" ", expanded=True):
-    row1 = st.columns(5)
+row1 = st.columns(5)
     row2 = st.columns(4)
 
     with row1[0]:
