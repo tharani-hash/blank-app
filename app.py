@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import io
 import numpy as np
 import altair as alt
+import plotly.express as px
 
 # ============================================================================
 # HTML TABLE RENDERING FUNCTION
@@ -1887,65 +1888,52 @@ elif eda_option == "Inventory Overview":
         if st.session_state.drill == 'year':
             yearly = df_time.groupby('year')[col_stock_value].sum().reset_index()
             
-            st.markdown("<p style='color:black; font-size:14px;'>Click a year button to view quarterly breakdown</p>", unsafe_allow_html=True)
+            fig = px.bar(yearly, x='year', y=col_stock_value, text_auto='.2s')
             
-            # Create Matplotlib bar chart with blue bars and black labels
-            fig, ax = plt.subplots(figsize=(10, 6))
+            # Blue bars, black labels
+            fig.update_traces(marker_color='#2F75B5')
+            fig.update_layout(
+                xaxis_title='Year',
+                yaxis_title='Stock Value',
+                xaxis=dict(tickfont=dict(color='black', size=12), titlefont=dict(color='black', size=14)),
+                yaxis=dict(tickfont=dict(color='black', size=12), titlefont=dict(color='black', size=14)),
+                clickmode='event+select',
+                plot_bgcolor='white',
+                paper_bgcolor='white'
+            )
             
-            bars = ax.bar(yearly['year'].astype(str), yearly[col_stock_value], color='#2F75B5', width=0.6)
+            st.markdown("<p style='color:black; font-size:14px;'>Click on any year bar to view quarterly breakdown</p>", unsafe_allow_html=True)
             
-            ax.set_xlabel('Year', fontsize=14, color='black')
-            ax.set_ylabel('Stock Value', fontsize=14, color='black')
-            ax.tick_params(axis='x', colors='black', labelsize=12)
-            ax.tick_params(axis='y', colors='black', labelsize=12)
+            # Display chart with click handling
+            selected = st.plotly_chart(fig, use_container_width=True, key='year_chart', on_select='rerun', selection_mode='points')
             
-            # Format y-axis with commas
-            ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'${x/1e6:.1f}M'))
-            
-            # Add value labels on bars
-            for bar, val in zip(bars, yearly[col_stock_value]):
-                ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + val*0.02, 
-                       f'${val/1e6:.1f}M', ha='center', va='bottom', fontsize=11, color='black')
-            
-            ax.spines['top'].set_visible(False)
-            ax.spines['right'].set_visible(False)
-            ax.set_facecolor('white')
-            fig.patch.set_facecolor('white')
-            
-            plt.tight_layout()
-            st.pyplot(fig, use_container_width=True)
-            plt.close(fig)
-            
-            # Year selection buttons
-            st.markdown("<p style='color:black; font-size:12px; margin-top:10px;'><b>Select year to drill down:</b></p>", unsafe_allow_html=True)
-            cols = st.columns(len(yearly))
-            for idx, row in yearly.iterrows():
-                with cols[idx]:
-                    if st.button(f"📅 {row['year']}", key=f"year_{row['year']}"):
-                        st.session_state.selected_year = str(row['year'])
-                        st.session_state.drill = 'quarter'
-                        st.rerun()
+            # Check if a bar was clicked
+            if selected and selected.selection and selected.selection.points:
+                point_idx = selected.selection.points[0]
+                clicked_year = str(yearly.iloc[point_idx]['year'])
+                st.session_state.selected_year = clicked_year
+                st.session_state.drill = 'quarter'
+                st.rerun()
         
         elif st.session_state.drill == 'quarter':
             selected_year = st.session_state.get('selected_year')
             quarter_data = df_time[df_time['year'] == selected_year]
             quarter_data = quarter_data.groupby('quarter')[col_stock_value].sum().reset_index()
             
-            # Blue bars with black axis labels
-            chart = alt.Chart(quarter_data).mark_bar(
-                color='#2F75B5',
-                size=60
-            ).encode(
-                x=alt.X('quarter:O', 
-                        title='Quarter',
-                        axis=alt.Axis(labelColor='black', titleColor='black', labelFontSize=12, titleFontSize=14)),
-                y=alt.Y(f'{col_stock_value}:Q', 
-                        title='Stock Value',
-                        axis=alt.Axis(labelColor='black', titleColor='black', labelFontSize=12, titleFontSize=14)),
-                tooltip=['quarter', col_stock_value]
+            fig = px.bar(quarter_data, x='quarter', y=col_stock_value, text_auto='.2s')
+            
+            # Blue bars, black labels
+            fig.update_traces(marker_color='#2F75B5')
+            fig.update_layout(
+                xaxis_title='Quarter',
+                yaxis_title='Stock Value',
+                xaxis=dict(tickfont=dict(color='black', size=12), titlefont=dict(color='black', size=14)),
+                yaxis=dict(tickfont=dict(color='black', size=12), titlefont=dict(color='black', size=14)),
+                plot_bgcolor='white',
+                paper_bgcolor='white'
             )
             
-            st.altair_chart(chart, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True)
             
             # Back button
             if st.button('← Back to Year'):
