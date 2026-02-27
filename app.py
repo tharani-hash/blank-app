@@ -1907,7 +1907,7 @@ elif eda_option == "Inventory Overview":
             # Handle selection
             if selected and hasattr(selected, 'selection') and selected.selection:
                 try:
-                    points = selected.selection.get('points', [])
+                    points = selected.selection.points
                     if points and len(points) > 0:
                         point_idx = points[0]
                         clicked_year = str(yearly.iloc[point_idx]['year'])
@@ -1934,7 +1934,7 @@ elif eda_option == "Inventory Overview":
             # Handle selection
             if selected and hasattr(selected, 'selection') and selected.selection:
                 try:
-                    points = selected.selection.get('points', [])
+                    points = selected.selection.points
                     if points and len(points) > 0:
                         point_idx = points[0]
                         clicked_quarter = str(quarter_data.iloc[point_idx]['quarter'])
@@ -1962,7 +1962,7 @@ elif eda_option == "Inventory Overview":
             # Handle selection
             if selected and hasattr(selected, 'selection') and selected.selection:
                 try:
-                    points = selected.selection.get('points', [])
+                    points = selected.selection.points
                     if points and len(points) > 0:
                         point_idx = points[0]
                         clicked_month = str(month_data.iloc[point_idx]['month'])
@@ -1999,7 +1999,7 @@ elif eda_option == "Inventory Overview":
             # Handle selection - reset to year view
             if selected and hasattr(selected, 'selection') and selected.selection:
                 try:
-                    points = selected.selection.get('points', [])
+                    points = selected.selection.points
                     if points and len(points) > 0:
                         # Reset all drill-down states
                         st.session_state.drill = 'year'
