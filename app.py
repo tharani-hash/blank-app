@@ -1977,14 +1977,21 @@ elif eda_option == "Inventory Overview":
             selected_quarter = st.session_state.get('selected_quarter')
             selected_month = st.session_state.get('selected_month')
             
-            # Add week column
-            df_time['week'] = df_time['date_id'].dt.isocalendar().week.astype(str)
+            # Add week column (only once)
+            if 'week' not in df_time.columns:
+                df_time['week'] = df_time['date_id'].dt.isocalendar().week.astype(str)
             
+            # Simple filtering for week data
             week_data = df_time[
                 (df_time['year'] == selected_year) & 
                 (df_time['quarter'] == selected_quarter) & 
                 (df_time['month'] == selected_month)
             ]
+            
+            # If no data, show all weeks
+            if week_data.empty:
+                week_data = df_time.copy()
+            
             week_data = week_data.groupby('week')[col_stock_value].sum().reset_index()
             
             # Simple Plotly chart with blue bars
@@ -1995,6 +2002,11 @@ elif eda_option == "Inventory Overview":
             
             # Use on_select for click handling
             selected = st.plotly_chart(fig, use_container_width=True, key='week_chart', on_select='rerun', selection_mode='points')
+            
+            # Test: Show if any click was detected
+            if selected:
+                st.write("Click detected!")
+                st.write(f"Selection object: {selected}")
             
             # Handle selection - reset to year view
             if selected and hasattr(selected, 'selection') and selected.selection:
