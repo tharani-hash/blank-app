@@ -1900,7 +1900,7 @@ elif eda_option == "Inventory Overview":
             st.markdown("<p style='color:black; font-size:14px;'><b>Click</b> on any year bar to view quarterly breakdown</p>", unsafe_allow_html=True)
             
             # Use on_select for click handling
-            selected = st.plotly_chart(fig, use_container_width=True, key='year_chart', on_select='rerun')
+            selected = st.plotly_chart(fig, use_container_width=True, key='year_chart', on_select='rerun', selection_mode='points')
             
             # Handle selection
             if selected and hasattr(selected, 'selection') and selected.selection:
@@ -1927,7 +1927,7 @@ elif eda_option == "Inventory Overview":
             st.markdown(f"<p style='color:black; font-size:14px;'><b>Click</b> on any quarter bar to view monthly breakdown for {selected_year}</p>", unsafe_allow_html=True)
             
             # Use on_select for click handling
-            selected = st.plotly_chart(fig, use_container_width=True, key='quarter_chart', on_select='rerun')
+            selected = st.plotly_chart(fig, use_container_width=True, key='quarter_chart', on_select='rerun', selection_mode='points')
             
             # Handle selection
             if selected and hasattr(selected, 'selection') and selected.selection:
