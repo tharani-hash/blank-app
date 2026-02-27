@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import io
 import numpy as np
 import altair as alt
+import plotly.express as px
 
 # ============================================================================
 # HTML TABLE RENDERING FUNCTION
@@ -1886,6 +1887,12 @@ elif eda_option == "Inventory Overview":
             if col in df_time.columns:
                 col_stock_value = col
                 break
+        
+        # Fallback - if still None, use first numeric column
+        if col_stock_value is None:
+            numeric_cols = df_time.select_dtypes(include=[np.number]).columns
+            if len(numeric_cols) > 0:
+                col_stock_value = numeric_cols[0]
         
         # Yearly chart
         yearly = df_time.groupby('year')[col_stock_value].sum().reset_index()
