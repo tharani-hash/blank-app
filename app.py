@@ -1880,27 +1880,120 @@ elif eda_option == "Inventory Overview":
         df_time['year'] = df_time['date_id'].dt.year.astype(str)
         df_time['quarter'] = df_time['date_id'].dt.to_period('Q').astype(str)
         df_time['month'] = df_time['date_id'].dt.to_period('M').astype(str)
+        df_time['week'] = df_time['date_id'].dt.isocalendar().week.astype(str)
         
-        # Find stock value column (ensure it's defined)
-        col_stock_value = None
-        for col in ['stock_value', 'inventory_value', 'total_stock_value']:
-            if col in df_time.columns:
-                col_stock_value = col
-                break
+        # Initialize session state for drill-down
+        if 'drill' not in st.session_state:
+            st.session_state.drill = 'year'
+        if 'selected_year' not in st.session_state:
+            st.session_state.selected_year = None
+        if 'selected_quarter' not in st.session_state:
+            st.session_state.selected_quarter = None
+        if 'selected_month' not in st.session_state:
+            st.session_state.selected_month = None
         
-        # Fallback - if still None, use first numeric column
-        if col_stock_value is None:
-            numeric_cols = df_time.select_dtypes(include=[np.number]).columns
-            if len(numeric_cols) > 0:
-                col_stock_value = numeric_cols[0]
+        if st.session_state.drill == 'year':
+            yearly = df_time.groupby('year')[col_stock_value].sum().reset_index()
+            fig = px.bar(yearly, x='year', y=col_stock_value)
+            fig.update_traces(marker_color='#2F75B5', selector=dict(type='bar'))
+            
+            st.markdown("<p style='color:black; font-size:14px;'><b>Click</b> on any year bar to view quarterly breakdown</p>", unsafe_allow_html=True)
+            
+            # Use on_select for click handling
+            selected = st.plotly_chart(fig, use_container_width=True, key='year_chart', on_select='rerun', selection_mode='points')
+            
+            # Handle selection
+            if selected and hasattr(selected, 'selection') and selected.selection:
+                try:
+                    points = selected.selection.points
+                    if points and len(points) > 0:
+                        point_idx = points[0]
+                        clicked_year = str(yearly.iloc[point_idx]['year'])
+                        st.session_state.selected_year = clicked_year
+                        st.session_state.drill = 'quarter'
+                        st.rerun()
+                except:
+                    pass
         
-        # Yearly chart
-        yearly = df_time.groupby('year')[col_stock_value].sum().reset_index()
-        fig = px.bar(yearly, x='year', y=col_stock_value)
-        fig.update_traces(marker_color='#2F75B5', selector=dict(type='bar'))
+        elif st.session_state.drill == 'quarter':
+            selected_year = st.session_state.get('selected_year')
+            quarter_data = df_time[df_time['year'] == selected_year]
+            quarter_data = quarter_data.groupby('quarter')[col_stock_value].sum().reset_index()
+            
+            fig = px.bar(quarter_data, x='quarter', y=col_stock_value)
+            fig.update_traces(marker_color='#2F75B5', selector=dict(type='bar'))
+            
+            st.markdown(f"<p style='color:black; font-size:14px;'><b>Click</b> on any quarter bar to view monthly breakdown for {selected_year}</p>", unsafe_allow_html=True)
+            
+            selected = st.plotly_chart(fig, use_container_width=True, key='quarter_chart', on_select='rerun', selection_mode='points')
+            
+            if selected and hasattr(selected, 'selection') and selected.selection:
+                try:
+                    points = selected.selection.points
+                    if points and len(points) > 0:
+                        point_idx = points[0]
+                        clicked_quarter = str(quarter_data.iloc[point_idx]['quarter'])
+                        st.session_state.selected_quarter = clicked_quarter
+                        st.session_state.drill = 'month'
+                        st.rerun()
+                except:
+                    pass
         
-        st.markdown("<p style='color:black; font-size:14px;'>Yearly stock values</p>", unsafe_allow_html=True)
-        st.plotly_chart(fig, use_container_width=True)
+        elif st.session_state.drill == 'month':
+            selected_year = st.session_state.get('selected_year')
+            selected_quarter = st.session_state.get('selected_quarter')
+            month_data = df_time[(df_time['year'] == selected_year) & (df_time['quarter'] == selected_quarter)]
+            month_data = month_data.groupby('month')[col_stock_value].sum().reset_index()
+            
+            fig = px.bar(month_data, x='month', y=col_stock_value)
+            fig.update_traces(marker_color='#2F75B5', selector=dict(type='bar'))
+            
+            st.markdown(f"<p style='color:black; font-size:14px;'><b>Click</b> on any month bar to view weekly breakdown for {selected_year} Q{selected_quarter[-1]}</p>", unsafe_allow_html=True)
+            
+            selected = st.plotly_chart(fig, use_container_width=True, key='month_chart', on_select='rerun', selection_mode='points')
+            
+            if selected and hasattr(selected, 'selection') and selected.selection:
+                try:
+                    points = selected.selection.points
+                    if points and len(points) > 0:
+                        point_idx = points[0]
+                        clicked_month = str(month_data.iloc[point_idx]['month'])
+                        st.session_state.selected_month = clicked_month
+                        st.session_state.drill = 'week'
+                        st.rerun()
+                except:
+                    pass
+        
+        elif st.session_state.drill == 'week':
+            selected_year = st.session_state.get('selected_year')
+            selected_quarter = st.session_state.get('selected_quarter')
+            selected_month = st.session_state.get('selected_month')
+            
+            week_data = df_time[
+                (df_time['year'] == selected_year) & 
+                (df_time['quarter'] == selected_quarter) & 
+                (df_time['month'] == selected_month)
+            ]
+            week_data = week_data.groupby('week')[col_stock_value].sum().reset_index()
+            
+            fig = px.bar(week_data, x='week', y=col_stock_value)
+            fig.update_traces(marker_color='#2F75B5', selector=dict(type='bar'))
+            
+            st.markdown(f"<p style='color:black; font-size:14px;'><b>Click</b> on any week bar to reset to year view</p>", unsafe_allow_html=True)
+            
+            selected = st.plotly_chart(fig, use_container_width=True, key='week_chart', on_select='rerun', selection_mode='points')
+            
+            if selected and hasattr(selected, 'selection') and selected.selection:
+                try:
+                    points = selected.selection.points
+                    if points and len(points) > 0:
+                        st.session_state.drill = 'year'
+                        st.session_state.selected_year = None
+                        st.session_state.selected_quarter = None
+                        st.session_state.selected_month = None
+                        st.rerun()
+                except:
+                    pass
 
     # ---------- STORE ANALYSIS ----------
     if 'store_id' in df.columns and col_stock_value:
