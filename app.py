@@ -1895,12 +1895,12 @@ elif eda_option == "Inventory Overview":
             fig.update_layout(
                 xaxis_title='Year',
                 yaxis_title='Stock Value',
-                xaxis=dict(tickfont=dict(color='black', size=12), titlefont=dict(color='black', size=14)),
-                yaxis=dict(tickfont=dict(color='black', size=12), titlefont=dict(color='black', size=14)),
                 clickmode='event+select',
                 plot_bgcolor='white',
                 paper_bgcolor='white'
             )
+            fig.update_xaxes(tickfont=dict(color='black', size=12), titlefont=dict(color='black', size=14))
+            fig.update_yaxes(tickfont=dict(color='black', size=12), titlefont=dict(color='black', size=14))
             
             st.markdown("<p style='color:black; font-size:14px;'>Click on any year bar to view quarterly breakdown</p>", unsafe_allow_html=True)
             
@@ -1927,11 +1927,11 @@ elif eda_option == "Inventory Overview":
             fig.update_layout(
                 xaxis_title='Quarter',
                 yaxis_title='Stock Value',
-                xaxis=dict(tickfont=dict(color='black', size=12), titlefont=dict(color='black', size=14)),
-                yaxis=dict(tickfont=dict(color='black', size=12), titlefont=dict(color='black', size=14)),
                 plot_bgcolor='white',
                 paper_bgcolor='white'
             )
+            fig.update_xaxes(tickfont=dict(color='black', size=12), titlefont=dict(color='black', size=14))
+            fig.update_yaxes(tickfont=dict(color='black', size=12), titlefont=dict(color='black', size=14))
             
             st.plotly_chart(fig, use_container_width=True)
             
