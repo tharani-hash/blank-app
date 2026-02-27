@@ -1887,6 +1887,7 @@ elif eda_option == "Inventory Overview":
         
         st.markdown("<p style='color:black; font-size:14px;'>Yearly stock values</p>", unsafe_allow_html=True)
         st.plotly_chart(fig, use_container_width=True)
+
     # ---------- STORE ANALYSIS ----------
     if 'store_id' in df.columns and col_stock_value:
         st.markdown(
