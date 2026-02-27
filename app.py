@@ -1568,7 +1568,7 @@ def nav_button(label, value):
             st.rerun()
 
 row1 = st.columns(5)
-    row2 = st.columns(4)
+row2 = st.columns(4)
 
     with row1[0]:
         nav_button("Data Quality Overview", "Data Quality Overview")
@@ -1891,6 +1891,9 @@ elif eda_option == "Inventory Overview":
         if 'selected_month' not in st.session_state:
             st.session_state.selected_month = None
         
+        # Selection box for navigation
+        st.markdown("<p style='color:black; font-size:14px;'><b>Select time level to view:</b></p>", unsafe_allow_html=True)
+        
         if st.session_state.drill == 'year':
             yearly = df_time.groupby('year')[col_stock_value].sum().reset_index()
             fig = px.bar(yearly, x='year', y=col_stock_value)
@@ -1993,6 +1996,38 @@ elif eda_option == "Inventory Overview":
                         st.rerun()
                 except:
                     pass
+        
+        # Navigation selection box
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("<p style='color:black; font-size:14px;'><b>Or select time level directly:</b></p>", unsafe_allow_html=True)
+        
+        # Create navigation options
+        nav_options = ['Year View']
+        if st.session_state.selected_year:
+            nav_options.append(f'Quarter View ({st.session_state.selected_year})')
+        if st.session_state.selected_quarter:
+            nav_options.append(f'Month View ({st.session_state.selected_year} Q{st.session_state.selected_quarter[-1]})')
+        if st.session_state.selected_month:
+            nav_options.append(f'Week View ({st.session_state.selected_year} Q{st.session_state.selected_quarter[-1]} {st.session_state.selected_month})')
+        
+        if len(nav_options) > 1:
+            selected_nav = st.selectbox('Navigate to:', nav_options, key='drill_nav')
+            
+            if selected_nav == 'Year View':
+                st.session_state.drill = 'year'
+                st.session_state.selected_year = None
+                st.session_state.selected_quarter = None
+                st.session_state.selected_month = None
+                st.rerun()
+            elif selected_nav.startswith('Quarter View'):
+                st.session_state.drill = 'quarter'
+                st.rerun()
+            elif selected_nav.startswith('Month View'):
+                st.session_state.drill = 'month'
+                st.rerun()
+            elif selected_nav.startswith('Week View'):
+                st.session_state.drill = 'week'
+                st.rerun()
 
     # ---------- STORE ANALYSIS ----------
     if 'store_id' in df.columns and col_stock_value:
