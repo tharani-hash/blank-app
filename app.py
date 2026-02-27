@@ -2381,7 +2381,7 @@ elif eda_option == "Inventory Overview":
             st.session_state.product_drill = 'week'
             st.rerun()
         
-        elif eda_option == "Sales Overview":
+elif eda_option == "Sales Overview":
     # Column mapping for inventory data
     col_rev = None
     col_qty = None
