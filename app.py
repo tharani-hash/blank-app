@@ -2014,31 +2014,58 @@ elif eda_option == "Inventory Overview":
         if st.session_state.selected_month:
             nav_options.append(f'Week View ({st.session_state.selected_year} Q{st.session_state.selected_quarter[-1]} {st.session_state.selected_month})')
         
-        # Always show selection box
-        if 'last_nav_selection' not in st.session_state:
-            st.session_state.last_nav_selection = 'Year View'
-        
-        selected_nav = st.selectbox('Navigate to:', nav_options, key='drill_nav')
-        
-        # Only rerun if selection actually changed
-        if selected_nav != st.session_state.last_nav_selection:
-            st.session_state.last_nav_selection = selected_nav
+        # Create navigation options with actual values
+        if st.session_state.drill == 'year':
+            # Show actual year options
+            yearly_data = df_time.groupby('year')[col_stock_value].sum().reset_index()
+            year_options = sorted(yearly_data['year'].unique().tolist())
+            selected_year = st.selectbox('Select Year:', year_options, key='year_select')
             
-            if selected_nav == 'Year View':
-                st.session_state.drill = 'year'
-                st.session_state.selected_year = None
-                st.session_state.selected_quarter = None
-                st.session_state.selected_month = None
-                st.rerun()
-            elif selected_nav.startswith('Quarter View'):
+            if selected_year != st.session_state.get('selected_year'):
+                st.session_state.selected_year = selected_year
                 st.session_state.drill = 'quarter'
                 st.rerun()
-            elif selected_nav.startswith('Month View'):
+                
+        elif st.session_state.drill == 'quarter':
+            selected_year = st.session_state.get('selected_year')
+            quarter_data = df_time[df_time['year'] == selected_year]
+            quarter_data = quarter_data.groupby('quarter')[col_stock_value].sum().reset_index()
+            quarter_options = sorted(quarter_data['quarter'].unique().tolist())
+            selected_quarter = st.selectbox(f'Select Quarter for {selected_year}:', quarter_options, key='quarter_select')
+            
+            if selected_quarter != st.session_state.get('selected_quarter'):
+                st.session_state.selected_quarter = selected_quarter
                 st.session_state.drill = 'month'
                 st.rerun()
-            elif selected_nav.startswith('Week View'):
+                
+        elif st.session_state.drill == 'month':
+            selected_year = st.session_state.get('selected_year')
+            selected_quarter = st.session_state.get('selected_quarter')
+            month_data = df_time[(df_time['year'] == selected_year) & (df_time['quarter'] == selected_quarter)]
+            month_data = month_data.groupby('month')[col_stock_value].sum().reset_index()
+            month_options = sorted(month_data['month'].unique().tolist())
+            selected_month = st.selectbox(f'Select Month for {selected_year} Q{selected_quarter[-1]}:', month_options, key='month_select')
+            
+            if selected_month != st.session_state.get('selected_month'):
+                st.session_state.selected_month = selected_month
                 st.session_state.drill = 'week'
                 st.rerun()
+                
+        elif st.session_state.drill == 'week':
+            selected_year = st.session_state.get('selected_year')
+            selected_quarter = st.session_state.get('selected_quarter')
+            selected_month = st.session_state.get('selected_month')
+            week_data = df_time[
+                (df_time['year'] == selected_year) & 
+                (df_time['quarter'] == selected_quarter) & 
+                (df_time['month'] == selected_month)
+            ]
+            week_data = week_data.groupby('week')[col_stock_value].sum().reset_index()
+            week_options = sorted(week_data['week'].unique().tolist())
+            selected_week = st.selectbox(f'Select Week for {selected_year} Q{selected_quarter[-1]} {selected_month}:', week_options, key='week_select')
+            
+            if selected_week:
+                st.session_state.drill = 'year'
 
     # ---------- STORE ANALYSIS ----------
     if 'store_id' in df.columns and col_stock_value:
@@ -2066,88 +2093,26 @@ elif eda_option == "Inventory Overview":
             .sort_values(ascending=False)
         )
 
-        # Create Matplotlib chart with custom axis labels
-        fig, ax = plt.subplots(figsize=(16, 8))  # Increased figure size
-        
-        bars = ax.bar(stock_store.index.astype(str), stock_store.values, color='#2F75B5')
-        
-        ax.set_title('Stock Value By Store', fontsize=20, color='#2F75B5', pad=20)
-        ax.set_xlabel('Store ID', fontsize=14, color='#333')
-        ax.set_ylabel('Stock Value', fontsize=14, color='#333')
-        
-        # Format y-axis with commas
-        ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x:,.0f}'))
-        
-        # Handle x-axis labels - show every nth label if too many stores
-        n_stores = len(stock_store)
-        if n_stores > 20:
-            step = max(1, n_stores // 15)  # Show max 15 labels
-            ax.set_xticks(range(0, n_stores, step))
-            ax.set_xticklabels(stock_store.index.astype(str)[::step], rotation=45, ha='right', fontsize=10)
-        else:
-            plt.xticks(rotation=45, ha='right', fontsize=12)
-        
-        plt.yticks(fontsize=12)
-        
-        # Remove top and right spines for cleaner look
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        
-        # Add grid for better readability
-        ax.grid(axis='y', alpha=0.3)
-        
-        plt.tight_layout()
-        
-        # Display in Streamlit
-        st.pyplot(fig, use_container_width=True)
-        plt.close()
-
-    # ---------- CLUSTER ANALYSIS ----------
-    if 'cluster_id' in df.columns and col_stock_value:
-        st.markdown(
-        """
-        <div style="
-            background-color:#2F75B5;
-            padding:18px 25px;
-            border-radius:10px;
-            font-size:20px;
-            color:white;
-            margin-top:20px;
-            margin-bottom:10px;
-            text-align:center;
-        ">
-            <b>Stock Value By Cluster</b>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-        stock_cluster = (
-            df.groupby('cluster_id')[col_stock_value]
-            .sum()
-            .sort_values(ascending=False)
-        )
-
         # Create Matplotlib chart matching first image style
         fig, ax = plt.subplots(figsize=(14, 8))
         fig.patch.set_facecolor('#F0F2F6') # Light blue background like first image
         ax.set_facecolor('#F0F2F6')
         
-        bars = ax.bar(stock_cluster.index.astype(str), stock_cluster.values, color='#2F75B5')
+        bars = ax.bar(stock_store.index.astype(str), stock_store.values, color='#2F75B5')
         
-        ax.set_title('Stock Value By Cluster', fontsize=20, color='#2F75B5', pad=20)
-        ax.set_xlabel('Cluster ID', fontsize=14, color='black')
+        ax.set_title('Stock Value By Store', fontsize=20, color='#2F75B5', pad=20)
+        ax.set_xlabel('Store ID', fontsize=14, color='black')
         ax.set_ylabel('Stock Value', fontsize=14, color='black')
         
         # Format y-axis with commas
         ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x:,.0f}'))
         
         # Fix overlapping x-axis labels - show every nth label
-        n_clusters = len(stock_cluster)
-        if n_clusters > 10:
-            step = max(1, n_clusters // 8)  # Show max 8 labels to prevent overlap
-            ax.set_xticks(range(0, n_clusters, step))
-            ax.set_xticklabels(stock_cluster.index.astype(str)[::step], rotation=45, ha='right', fontsize=11)
+        n_stores = len(stock_store)
+        if n_stores > 10:
+            step = max(1, n_stores // 8)  # Show max 8 labels to prevent overlap
+            ax.set_xticks(range(0, n_stores, step))
+            ax.set_xticklabels(stock_store.index.astype(str)[::step], rotation=45, ha='right', fontsize=11)
         else:
             plt.xticks(rotation=45, ha='right', fontsize=12)
         
