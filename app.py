@@ -1570,25 +1570,25 @@ def nav_button(label, value):
 row1 = st.columns(5)
 row2 = st.columns(4)
 
-    with row1[0]:
-        nav_button("Data Quality Overview", "Data Quality Overview")
-    with row1[1]:
-        nav_button("Inventory Overview", "Inventory Overview")
-    with row1[2]:
-        nav_button("Transfer Effectiveness", "Transfer Effectiveness")
-    with row1[3]:
-        nav_button("Product-Level Analysis", "Product-Level Analysis")
-    with row1[4]:
-        nav_button("Route-Level Analysis", "Route-Level Analysis")
+with row1[0]:
+    nav_button("Data Quality Overview", "Data Quality Overview")
+with row1[1]:
+    nav_button("Inventory Overview", "Inventory Overview")
+with row1[2]:
+    nav_button("Transfer Effectiveness", "Transfer Effectiveness")
+with row1[3]:
+    nav_button("Product-Level Analysis", "Product-Level Analysis")
+with row1[4]:
+    nav_button("Route-Level Analysis", "Route-Level Analysis")
 
-    with row2[0]:
-        nav_button("Model Impact Analysis", "Model Impact Analysis")
-    with row2[1]:
-        nav_button("Store-Level Analysis", "Store-Level Analysis")
-    with row2[2]:
-        nav_button("Cluster Analysis", "Cluster Analysis")
-    with row2[3]:
-        nav_button("Summary Report", "Summary Report")
+with row2[0]:
+    nav_button("Model Impact Analysis", "Model Impact Analysis")
+with row2[1]:
+    nav_button("Store-Level Analysis", "Store-Level Analysis")
+with row2[2]:
+    nav_button("Cluster Analysis", "Cluster Analysis")
+with row2[3]:
+    nav_button("Summary Report", "Summary Report")
 
 
 eda_option = st.session_state.eda_option
