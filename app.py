@@ -1849,35 +1849,9 @@ elif eda_option == "Inventory Overview":
     
     if 'date_id' in df.columns and col_stock_value:
         st.markdown(
-            """
-            <div style="
-                background-color:#2F75B5;
-                padding:18px 25px;
-                border-radius:10px;
-                font-size:20px;
-                color:white;
-                margin-top:20px;
-                margin-bottom:10px;
-                text-align:center;
-            ">
-                <b>Stock Value By Time</b>
-            </div>
-            """,
-                unsafe_allow_html=True
-            )
-        
-        # Initialize session state for drill-down navigation
-        if 'drill_level' not in st.session_state:
-            st.session_state.drill_level = 'year'
-        if 'drill_selection' not in st.session_state:
-            st.session_state.drill_selection = None
-        
-        # Handle URL parameters for drill-down
-        query_params = st.query_params
-        if 'drill_level' in query_params:
-            st.session_state.drill_level = query_params['drill_level']
-        if 'drill_selection' in query_params:
-            st.session_state.drill_selection = query_params['drill_selection']
+            "<h2 style='color:black; font-weight:900; text-align:center;'>Stock Value By Time</h2>",
+            unsafe_allow_html=True
+        )
         
         # Prepare time data
         df_time = df.copy()
@@ -1889,162 +1863,55 @@ elif eda_option == "Inventory Overview":
         df_time = df_time.dropna(subset=['date_id'])
         
         # Add time components
-        df_time['year'] = df_time['date_id'].dt.year
+        df_time['year'] = df_time['date_id'].dt.year.astype(str)
         df_time['quarter'] = df_time['date_id'].dt.to_period('Q').astype(str)
-        df_time['month'] = df_time['date_id'].dt.to_period('M').astype(str)
-        df_time['week'] = df_time['date_id'].dt.isocalendar().week.astype(str) + '-' + df_time['year'].astype(str)
         
-        # Filter data based on current drill selection
-        if st.session_state.drill_selection and st.session_state.drill_level != 'year':
-            if st.session_state.drill_level == 'quarter':
-                year_selected = st.session_state.drill_selection
-                df_filtered = df_time[df_time['year'] == year_selected]
-            elif st.session_state.drill_level == 'month':
-                quarter_selected = st.session_state.drill_selection
-                df_filtered = df_time[df_time['quarter'] == quarter_selected]
-            elif st.session_state.drill_level == 'week':
-                month_selected = st.session_state.drill_selection
-                df_filtered = df_time[df_time['month'] == month_selected]
-            else:
-                df_filtered = df_time
-        else:
-            df_filtered = df_time
+        # Initialize session state for drill-down
+        if 'drill' not in st.session_state:
+            st.session_state.drill = 'year'
         
-        # Generate chart based on current drill level
-        if st.session_state.drill_level == 'year':
-            # Year-wise view - Altair chart with proper axis labels
-            yearly_data = df_time.groupby('year')[col_stock_value].sum().reset_index()
-            chart_title = "Stock Value by Year"
-            st.write(f"Debug: yearly_data = {yearly_data}")
-            st.write(f"Debug: yearly_data shape: {yearly_data.shape}")
-            st.write(f"Debug: yearly_data columns: {list(yearly_data.columns)}")
-            st.write(f"Debug: yearly_data values: {yearly_data.values}")
-            st.write(f"Debug: stock_value column values: {yearly_data[col_stock_value].tolist()}")
-            st.write(f"Debug: any NaN in stock_value: {yearly_data[col_stock_value].isna().any()}")
-            st.write(f"Debug: any zeros in stock_value: {(yearly_data[col_stock_value] == 0).any()}")
+        if st.session_state.drill == 'year':
+            yearly = df_time.groupby('year')[col_stock_value].sum().reset_index()
             
-            # Filter out NaN values
-            yearly_data = yearly_data.dropna(subset=[col_stock_value])
-            st.write(f"Debug: after dropping NaN, shape: {yearly_data.shape}")
+            selection = alt.selection_point(
+                fields=['year'],
+                on='dblclick',
+                clear=False
+            )
             
-            chart_data = alt.Chart(yearly_data).mark_bar(
-                color='#00D05E',
-                cornerRadiusEnd=6
-            ).encode(
-                x=alt.X('year:Q', title='Year'),
+            chart = alt.Chart(yearly).mark_bar(color='black').encode(
+                x='year:O',
                 y=alt.Y(f'{col_stock_value}:Q', title='Stock Value'),
                 tooltip=['year', col_stock_value]
-            ).properties(
-                title=chart_title,
-                height=400,
-                background='transparent'
-            ).interactive()
+            ).add_params(selection)
             
-            st.altair_chart(chart_data, use_container_width=True)
+            st.altair_chart(chart, use_container_width=True)
             
-        elif st.session_state.drill_level == 'quarter':
-            # Quarter-wise view
-            quarter_data = df_filtered.groupby('quarter')[col_stock_value].sum().reset_index()
-            chart_data = alt.Chart(quarter_data).mark_bar(
-                color='#001F5C',
-                cornerRadiusEnd=6
-            ).encode(
-                x=alt.X('quarter:O', title='Quarter'),
+            # Handle selection
+            if selection and hasattr(selection, 'to_dict') and selection.to_dict().get('year'):
+                selected_year = selection.to_dict()['year'][0] if selection.to_dict()['year'] else None
+                if selected_year:
+                    st.session_state.selected_year = selected_year
+                    st.session_state.drill = 'quarter'
+                    st.rerun()
+        
+        elif st.session_state.drill == 'quarter':
+            selected_year = st.session_state.get('selected_year')
+            quarter_data = df_time[df_time['year'] == selected_year]
+            quarter_data = quarter_data.groupby('quarter')[col_stock_value].sum().reset_index()
+            
+            chart = alt.Chart(quarter_data).mark_bar(color='black').encode(
+                x='quarter:O',
                 y=alt.Y(f'{col_stock_value}:Q', title='Stock Value'),
                 tooltip=['quarter', col_stock_value]
-            ).properties(
-                height=400,
-                background='transparent'
             )
-            chart_title = f"Stock Value by Quarter - {st.session_state.drill_selection}"
             
-        elif st.session_state.drill_level == 'month':
-            # Month-wise view
-            month_data = df_filtered.groupby('month')[col_stock_value].sum().reset_index()
-            chart_data = alt.Chart(month_data).mark_bar(
-                color='#001F5C',
-                cornerRadiusEnd=6
-            ).encode(
-                x=alt.X('month:O', title='Month'),
-                y=alt.Y(f'{col_stock_value}:Q', title='Stock Value'),
-                tooltip=['month', col_stock_value]
-            ).properties(
-                height=400,
-                background='transparent'
-            )
-            chart_title = f"Stock Value by Month - {st.session_state.drill_selection}"
+            st.altair_chart(chart, use_container_width=True)
             
-        else:  # week level
-            # Week-wise view
-            week_data = df_filtered.groupby('week')[col_stock_value].sum().reset_index()
-            chart_data = alt.Chart(week_data).mark_bar(
-                color='#001F5C',
-                cornerRadiusEnd=6
-            ).encode(
-                x=alt.X('week:O', title='Week'),
-                y=alt.Y(f'{col_stock_value}:Q', title='Stock Value'),
-                tooltip=['week', col_stock_value]
-            ).properties(
-                height=400,
-                background='transparent'
-            )
-            chart_title = f"Stock Value by Week - {st.session_state.drill_selection}"
-        
-        # Display chart with title
-        st.markdown(f"### {chart_title}")
-        
-        # Add double-click event handling with JavaScript
-        double_click_js = """
-        <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const vegaEmbed = document.querySelector('.vega-bindings');
-            if (vegaEmbed) {
-                vegaEmbed.addEventListener('dblclick', function(event) {
-                    const datum = event.detail.datum;
-                    if (datum) {
-                        // Get current level from URL or session
-                        const currentLevel = '%s';
-                        
-                        // Determine next level and selection
-                        let nextLevel = '';
-                        let selection = '';
-                        
-                        if (currentLevel === 'year') {
-                            nextLevel = 'quarter';
-                            selection = datum.year.toString();
-                        } else if (currentLevel === 'quarter') {
-                            nextLevel = 'month';
-                            selection = datum.quarter;
-                        } else if (currentLevel === 'month') {
-                            nextLevel = 'week';
-                            selection = datum.month;
-                        } else if (currentLevel === 'week') {
-                            nextLevel = 'month';
-                            selection = datum.month;
-                        }
-                        
-                        // Trigger Streamlit rerun with new level
-                        if (nextLevel && selection) {
-                            const params = new URLSearchParams(window.location.search);
-                            params.set('drill_level', nextLevel);
-                            params.set('drill_selection', selection);
-                            window.location.search = params.toString();
-                        }
-                    }
-                });
-            }
-        });
-        </script>
-        """ % st.session_state.drill_level
-        
-        # Inject JavaScript for double-click handling
-        st.components.v1.html(double_click_js, height=0)
-        
-        # Display chart
-        if 'chart_data' in locals() and chart_data is not None:
-            st.altair_chart(chart_data, use_container_width=True)
-        else:
-            st.warning("⚠️ No data available for Stock Value By Time chart")
+            # Add back button
+            if st.button('← Back to Year'):
+                st.session_state.drill = 'year'
+                st.rerun()
 
     # ---------- STORE ANALYSIS ----------
     if 'store_id' in df.columns and col_stock_value:
