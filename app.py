@@ -2091,8 +2091,8 @@ elif eda_option == "Inventory Overview":
         st.pyplot(fig, use_container_width=True)
         plt.close()
 
-    # ---------- PRODUCT ANALYSIS ----------
-    if 'product_id' in df.columns and col_stock_value:
+    # ---------- CLUSTER ANALYSIS ----------
+    if 'cluster_id' in df.columns and col_stock_value:
         st.markdown(
         """
         <div style="
@@ -2105,54 +2105,63 @@ elif eda_option == "Inventory Overview":
             margin-bottom:10px;
             text-align:center;
         ">
-            <b>Stock Value By Product</b>
+            <b>Stock Value By Cluster</b>
         </div>
         """,
         unsafe_allow_html=True
     )
 
-        stock_product = (
-            df.groupby('product_id')[col_stock_value]
+        stock_cluster = (
+            df.groupby('cluster_id')[col_stock_value]
             .sum()
             .sort_values(ascending=False)
         )
 
-        # Create Matplotlib chart with custom axis labels
-        fig, ax = plt.subplots(figsize=(16, 8))  # Increased figure size
+        # Create Matplotlib chart matching first image style
+        fig, ax = plt.subplots(figsize=(14, 8))
+        fig.patch.set_facecolor('#F0F2F6') # Light blue background like first image
+        ax.set_facecolor('#F0F2F6')
         
-        bars = ax.bar(stock_product.index.astype(str), stock_product.values, color='#2F75B5')
+        bars = ax.bar(stock_cluster.index.astype(str), stock_cluster.values, color='#2F75B5')
         
-        ax.set_title('Stock Value By Product', fontsize=20, color='#2F75B5', pad=20)
-        ax.set_xlabel('Product ID', fontsize=14, color='#333')
-        ax.set_ylabel('Stock Value', fontsize=14, color='#333')
+        ax.set_title('Stock Value By Cluster', fontsize=20, color='#2F75B5', pad=20)
+        ax.set_xlabel('Cluster ID', fontsize=14, color='black')
+        ax.set_ylabel('Stock Value', fontsize=14, color='black')
         
         # Format y-axis with commas
         ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x:,.0f}'))
         
-        # Handle x-axis labels - show every nth label if too many products
-        n_products = len(stock_product)
-        if n_products > 20:
-            step = max(1, n_products // 15)  # Show max 15 labels
-            ax.set_xticks(range(0, n_products, step))
-            ax.set_xticklabels(stock_product.index.astype(str)[::step], rotation=45, ha='right', fontsize=10)
+        # Fix overlapping x-axis labels - show every nth label
+        n_clusters = len(stock_cluster)
+        if n_clusters > 10:
+            step = max(1, n_clusters // 8)  # Show max 8 labels to prevent overlap
+            ax.set_xticks(range(0, n_clusters, step))
+            ax.set_xticklabels(stock_cluster.index.astype(str)[::step], rotation=45, ha='right', fontsize=11)
         else:
             plt.xticks(rotation=45, ha='right', fontsize=12)
         
-        plt.yticks(fontsize=12)
+        # Set tick colors to black
+        ax.tick_params(axis='x', colors='black')
+        ax.tick_params(axis='y', colors='black')
         
         # Remove top and right spines for cleaner look
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
         
-        # Add grid for better readability
-        ax.grid(axis='y', alpha=0.3)
+        # Set remaining spines to black
+        ax.spines['left'].set_color('black')
+        ax.spines['bottom'].set_color('black')
+        
+        # Add subtle grid like first image
+        ax.grid(axis='y', color='lightgray', linestyle='-', linewidth=0.5, alpha=0.6)
         
         plt.tight_layout()
         
         # Display in Streamlit
         st.pyplot(fig, use_container_width=True)
         plt.close()
-        
+
+
 elif eda_option == "Sales Overview":
     # Column mapping for inventory data
     col_rev = None
