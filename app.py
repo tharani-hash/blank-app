@@ -2048,162 +2048,48 @@ elif eda_option == "Inventory Overview":
         """,
         unsafe_allow_html=True
     )
+
+        stock_store = (
+            df.groupby('store_id')[col_stock_value]
+            .sum()
+            .sort_values(ascending=False)
+        )
+
+        # Create Matplotlib chart with custom axis labels
+        fig, ax = plt.subplots(figsize=(16, 8))  # Increased figure size
         
-        # Prepare store data with time components
-        df_store = df.copy()
+        bars = ax.bar(stock_store.index.astype(str), stock_store.values, color='#2F75B5')
         
-        # Fix date parsing for format D_YYYYMMDD
-        df_store['date_id'] = df_store['date_id'].astype(str)
-        df_store['date_id'] = df_store['date_id'].str.replace('D_', '')
-        df_store['date_id'] = pd.to_datetime(df_store['date_id'], format='%Y%m%d', errors='coerce')
-        df_store = df_store.dropna(subset=['date_id'])
+        ax.set_title('Stock Value By Store', fontsize=20, color='#2F75B5', pad=20)
+        ax.set_xlabel('Store ID', fontsize=14, color='#333')
+        ax.set_ylabel('Stock Value', fontsize=14, color='#333')
         
-        # Add time components
-        df_store['year'] = df_store['date_id'].dt.year.astype(str)
-        df_store['quarter'] = df_store['date_id'].dt.to_period('Q').astype(str)
-        df_store['month'] = df_store['date_id'].dt.to_period('M').astype(str)
-        df_store['week'] = df_store['date_id'].dt.isocalendar().week.astype(str)
+        # Format y-axis with commas
+        ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x:,.0f}'))
         
-        # Initialize session state for store drill-down
-        if 'store_drill' not in st.session_state:
-            st.session_state.store_drill = 'year'
-        if 'store_selected_year' not in st.session_state:
-            st.session_state.store_selected_year = None
-        if 'store_selected_quarter' not in st.session_state:
-            st.session_state.store_selected_quarter = None
-        if 'store_selected_month' not in st.session_state:
-            st.session_state.store_selected_month = None
+        # Handle x-axis labels - show every nth label if too many stores
+        n_stores = len(stock_store)
+        if n_stores > 20:
+            step = max(1, n_stores // 15)  # Show max 15 labels
+            ax.set_xticks(range(0, n_stores, step))
+            ax.set_xticklabels(stock_store.index.astype(str)[::step], rotation=45, ha='right', fontsize=10)
+        else:
+            plt.xticks(rotation=45, ha='right', fontsize=12)
         
-        if st.session_state.store_drill == 'year':
-            yearly_store = df_store.groupby('year')[col_stock_value].sum().reset_index()
-            fig = px.bar(yearly_store, x='year', y=col_stock_value)
-            fig.update_traces(marker_color='#2F75B5', selector=dict(type='bar'))
-            
-            st.markdown("<p style='color:black; font-size:14px;'><b>Click</b> on any year bar to view quarterly breakdown</p>", unsafe_allow_html=True)
-            
-            selected = st.plotly_chart(fig, use_container_width=True, key='store_year_chart', on_select='rerun', selection_mode='points')
-            
-            if selected and hasattr(selected, 'selection') and selected.selection:
-                try:
-                    points = selected.selection.points
-                    if points and len(points) > 0:
-                        point_idx = points[0]
-                        clicked_year = str(yearly_store.iloc[point_idx]['year'])
-                        st.session_state.store_selected_year = clicked_year
-                        st.session_state.store_drill = 'quarter'
-                        st.rerun()
-                except:
-                    pass
+        plt.yticks(fontsize=12)
         
-        elif st.session_state.store_drill == 'quarter':
-            selected_year = st.session_state.get('store_selected_year')
-            quarter_store = df_store[df_store['year'] == selected_year]
-            quarter_store = quarter_store.groupby('quarter')[col_stock_value].sum().reset_index()
-            
-            fig = px.bar(quarter_store, x='quarter', y=col_stock_value)
-            fig.update_traces(marker_color='#2F75B5', selector=dict(type='bar'))
-            
-            st.markdown(f"<p style='color:black; font-size:14px;'><b>Click</b> on any quarter bar to view monthly breakdown for {selected_year}</p>", unsafe_allow_html=True)
-            
-            selected = st.plotly_chart(fig, use_container_width=True, key='store_quarter_chart', on_select='rerun', selection_mode='points')
-            
-            if selected and hasattr(selected, 'selection') and selected.selection:
-                try:
-                    points = selected.selection.points
-                    if points and len(points) > 0:
-                        point_idx = points[0]
-                        clicked_quarter = str(quarter_store.iloc[point_idx]['quarter'])
-                        st.session_state.store_selected_quarter = clicked_quarter
-                        st.session_state.store_drill = 'month'
-                        st.rerun()
-                except:
-                    pass
+        # Remove top and right spines for cleaner look
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
         
-        elif st.session_state.store_drill == 'month':
-            selected_year = st.session_state.get('store_selected_year')
-            selected_quarter = st.session_state.get('store_selected_quarter')
-            month_store = df_store[(df_store['year'] == selected_year) & (df_store['quarter'] == selected_quarter)]
-            month_store = month_store.groupby('month')[col_stock_value].sum().reset_index()
-            
-            fig = px.bar(month_store, x='month', y=col_stock_value)
-            fig.update_traces(marker_color='#2F75B5', selector=dict(type='bar'))
-            
-            st.markdown(f"<p style='color:black; font-size:14px;'><b>Click</b> on any month bar to view weekly breakdown for {selected_year} Q{selected_quarter[-1]}</p>", unsafe_allow_html=True)
-            
-            selected = st.plotly_chart(fig, use_container_width=True, key='store_month_chart', on_select='rerun', selection_mode='points')
-            
-            if selected and hasattr(selected, 'selection') and selected.selection:
-                try:
-                    points = selected.selection.points
-                    if points and len(points) > 0:
-                        point_idx = points[0]
-                        clicked_month = str(month_store.iloc[point_idx]['month'])
-                        st.session_state.store_selected_month = clicked_month
-                        st.session_state.store_drill = 'week'
-                        st.rerun()
-                except:
-                    pass
+        # Add grid for better readability
+        ax.grid(axis='y', alpha=0.3)
         
-        elif st.session_state.store_drill == 'week':
-            selected_year = st.session_state.get('store_selected_year')
-            selected_quarter = st.session_state.get('store_selected_quarter')
-            selected_month = st.session_state.get('store_selected_month')
-            
-            week_store = df_store[
-                (df_store['year'] == selected_year) & 
-                (df_store['quarter'] == selected_quarter) & 
-                (df_store['month'] == selected_month)
-            ]
-            week_store = week_store.groupby('week')[col_stock_value].sum().reset_index()
-            
-            fig = px.bar(week_store, x='week', y=col_stock_value)
-            fig.update_traces(marker_color='#2F75B5', selector=dict(type='bar'))
-            
-            st.markdown(f"<p style='color:black; font-size:14px;'><b>Click</b> on any week bar to reset to year view</p>", unsafe_allow_html=True)
-            
-            selected = st.plotly_chart(fig, use_container_width=True, key='store_week_chart', on_select='rerun', selection_mode='points')
-            
-            if selected and hasattr(selected, 'selection') and selected.selection:
-                try:
-                    points = selected.selection.points
-                    if points and len(points) > 0:
-                        st.session_state.store_drill = 'year'
-                        st.session_state.store_selected_year = None
-                        st.session_state.store_selected_quarter = None
-                        st.session_state.store_selected_month = None
-                        st.rerun()
-                except:
-                    pass
+        plt.tight_layout()
         
-        # Store navigation selection box
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("<p style='color:black; font-size:14px;'><b>Or select store time level directly:</b></p>", unsafe_allow_html=True)
-        
-        nav_options = ['Year View']
-        if st.session_state.store_selected_year:
-            nav_options.append(f'Quarter View ({st.session_state.store_selected_year})')
-        if st.session_state.store_selected_quarter:
-            nav_options.append(f'Month View ({st.session_state.store_selected_year} Q{st.session_state.store_selected_quarter[-1]})')
-        if st.session_state.store_selected_month:
-            nav_options.append(f'Week View ({st.session_state.store_selected_year} Q{st.session_state.store_selected_quarter[-1]} {st.session_state.store_selected_month})')
-        
-        selected_nav = st.selectbox('Navigate to:', nav_options, key='store_drill_nav')
-        
-        if selected_nav == 'Year View':
-            st.session_state.store_drill = 'year'
-            st.session_state.store_selected_year = None
-            st.session_state.store_selected_quarter = None
-            st.session_state.store_selected_month = None
-            st.rerun()
-        elif selected_nav.startswith('Quarter View'):
-            st.session_state.store_drill = 'quarter'
-            st.rerun()
-        elif selected_nav.startswith('Month View'):
-            st.session_state.store_drill = 'month'
-            st.rerun()
-        elif selected_nav.startswith('Week View'):
-            st.session_state.store_drill = 'week'
-            st.rerun()
+        # Display in Streamlit
+        st.pyplot(fig, use_container_width=True)
+        plt.close()
 
     # ---------- PRODUCT ANALYSIS ----------
     if 'product_id' in df.columns and col_stock_value:
@@ -2224,162 +2110,48 @@ elif eda_option == "Inventory Overview":
         """,
         unsafe_allow_html=True
     )
+
+        stock_product = (
+            df.groupby('product_id')[col_stock_value]
+            .sum()
+            .sort_values(ascending=False)
+        )
+
+        # Create Matplotlib chart with custom axis labels
+        fig, ax = plt.subplots(figsize=(16, 8))  # Increased figure size
         
-        # Prepare product data with time components
-        df_product = df.copy()
+        bars = ax.bar(stock_product.index.astype(str), stock_product.values, color='#2F75B5')
         
-        # Fix date parsing for format D_YYYYMMDD
-        df_product['date_id'] = df_product['date_id'].astype(str)
-        df_product['date_id'] = df_product['date_id'].str.replace('D_', '')
-        df_product['date_id'] = pd.to_datetime(df_product['date_id'], format='%Y%m%d', errors='coerce')
-        df_product = df_product.dropna(subset=['date_id'])
+        ax.set_title('Stock Value By Product', fontsize=20, color='#2F75B5', pad=20)
+        ax.set_xlabel('Product ID', fontsize=14, color='#333')
+        ax.set_ylabel('Stock Value', fontsize=14, color='#333')
         
-        # Add time components
-        df_product['year'] = df_product['date_id'].dt.year.astype(str)
-        df_product['quarter'] = df_product['date_id'].dt.to_period('Q').astype(str)
-        df_product['month'] = df_product['date_id'].dt.to_period('M').astype(str)
-        df_product['week'] = df_product['date_id'].dt.isocalendar().week.astype(str)
+        # Format y-axis with commas
+        ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x:,.0f}'))
         
-        # Initialize session state for product drill-down
-        if 'product_drill' not in st.session_state:
-            st.session_state.product_drill = 'year'
-        if 'product_selected_year' not in st.session_state:
-            st.session_state.product_selected_year = None
-        if 'product_selected_quarter' not in st.session_state:
-            st.session_state.product_selected_quarter = None
-        if 'product_selected_month' not in st.session_state:
-            st.session_state.product_selected_month = None
+        # Handle x-axis labels - show every nth label if too many products
+        n_products = len(stock_product)
+        if n_products > 20:
+            step = max(1, n_products // 15)  # Show max 15 labels
+            ax.set_xticks(range(0, n_products, step))
+            ax.set_xticklabels(stock_product.index.astype(str)[::step], rotation=45, ha='right', fontsize=10)
+        else:
+            plt.xticks(rotation=45, ha='right', fontsize=12)
         
-        if st.session_state.product_drill == 'year':
-            yearly_product = df_product.groupby('year')[col_stock_value].sum().reset_index()
-            fig = px.bar(yearly_product, x='year', y=col_stock_value)
-            fig.update_traces(marker_color='#2F75B5', selector=dict(type='bar'))
-            
-            st.markdown("<p style='color:black; font-size:14px;'><b>Click</b> on any year bar to view quarterly breakdown</p>", unsafe_allow_html=True)
-            
-            selected = st.plotly_chart(fig, use_container_width=True, key='product_year_chart', on_select='rerun', selection_mode='points')
-            
-            if selected and hasattr(selected, 'selection') and selected.selection:
-                try:
-                    points = selected.selection.points
-                    if points and len(points) > 0:
-                        point_idx = points[0]
-                        clicked_year = str(yearly_product.iloc[point_idx]['year'])
-                        st.session_state.product_selected_year = clicked_year
-                        st.session_state.product_drill = 'quarter'
-                        st.rerun()
-                except:
-                    pass
+        plt.yticks(fontsize=12)
         
-        elif st.session_state.product_drill == 'quarter':
-            selected_year = st.session_state.get('product_selected_year')
-            quarter_product = df_product[df_product['year'] == selected_year]
-            quarter_product = quarter_product.groupby('quarter')[col_stock_value].sum().reset_index()
-            
-            fig = px.bar(quarter_product, x='quarter', y=col_stock_value)
-            fig.update_traces(marker_color='#2F75B5', selector=dict(type='bar'))
-            
-            st.markdown(f"<p style='color:black; font-size:14px;'><b>Click</b> on any quarter bar to view monthly breakdown for {selected_year}</p>", unsafe_allow_html=True)
-            
-            selected = st.plotly_chart(fig, use_container_width=True, key='product_quarter_chart', on_select='rerun', selection_mode='points')
-            
-            if selected and hasattr(selected, 'selection') and selected.selection:
-                try:
-                    points = selected.selection.points
-                    if points and len(points) > 0:
-                        point_idx = points[0]
-                        clicked_quarter = str(quarter_product.iloc[point_idx]['quarter'])
-                        st.session_state.product_selected_quarter = clicked_quarter
-                        st.session_state.product_drill = 'month'
-                        st.rerun()
-                except:
-                    pass
+        # Remove top and right spines for cleaner look
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
         
-        elif st.session_state.product_drill == 'month':
-            selected_year = st.session_state.get('product_selected_year')
-            selected_quarter = st.session_state.get('product_selected_quarter')
-            month_product = df_product[(df_product['year'] == selected_year) & (df_product['quarter'] == selected_quarter)]
-            month_product = month_product.groupby('month')[col_stock_value].sum().reset_index()
-            
-            fig = px.bar(month_product, x='month', y=col_stock_value)
-            fig.update_traces(marker_color='#2F75B5', selector=dict(type='bar'))
-            
-            st.markdown(f"<p style='color:black; font-size:14px;'><b>Click</b> on any month bar to view weekly breakdown for {selected_year} Q{selected_quarter[-1]}</p>", unsafe_allow_html=True)
-            
-            selected = st.plotly_chart(fig, use_container_width=True, key='product_month_chart', on_select='rerun', selection_mode='points')
-            
-            if selected and hasattr(selected, 'selection') and selected.selection:
-                try:
-                    points = selected.selection.points
-                    if points and len(points) > 0:
-                        point_idx = points[0]
-                        clicked_month = str(month_product.iloc[point_idx]['month'])
-                        st.session_state.product_selected_month = clicked_month
-                        st.session_state.product_drill = 'week'
-                        st.rerun()
-                except:
-                    pass
+        # Add grid for better readability
+        ax.grid(axis='y', alpha=0.3)
         
-        elif st.session_state.product_drill == 'week':
-            selected_year = st.session_state.get('product_selected_year')
-            selected_quarter = st.session_state.get('product_selected_quarter')
-            selected_month = st.session_state.get('product_selected_month')
-            
-            week_product = df_product[
-                (df_product['year'] == selected_year) & 
-                (df_product['quarter'] == selected_quarter) & 
-                (df_product['month'] == selected_month)
-            ]
-            week_product = week_product.groupby('week')[col_stock_value].sum().reset_index()
-            
-            fig = px.bar(week_product, x='week', y=col_stock_value)
-            fig.update_traces(marker_color='#2F75B5', selector=dict(type='bar'))
-            
-            st.markdown(f"<p style='color:black; font-size:14px;'><b>Click</b> on any week bar to reset to year view</p>", unsafe_allow_html=True)
-            
-            selected = st.plotly_chart(fig, use_container_width=True, key='product_week_chart', on_select='rerun', selection_mode='points')
-            
-            if selected and hasattr(selected, 'selection') and selected.selection:
-                try:
-                    points = selected.selection.points
-                    if points and len(points) > 0:
-                        st.session_state.product_drill = 'year'
-                        st.session_state.product_selected_year = None
-                        st.session_state.product_selected_quarter = None
-                        st.session_state.product_selected_month = None
-                        st.rerun()
-                except:
-                    pass
+        plt.tight_layout()
         
-        # Product navigation selection box
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("<p style='color:black; font-size:14px;'><b>Or select product time level directly:</b></p>", unsafe_allow_html=True)
-        
-        nav_options = ['Year View']
-        if st.session_state.product_selected_year:
-            nav_options.append(f'Quarter View ({st.session_state.product_selected_year})')
-        if st.session_state.product_selected_quarter:
-            nav_options.append(f'Month View ({st.session_state.product_selected_year} Q{st.session_state.product_selected_quarter[-1]})')
-        if st.session_state.product_selected_month:
-            nav_options.append(f'Week View ({st.session_state.product_selected_year} Q{st.session_state.product_selected_quarter[-1]} {st.session_state.product_selected_month})')
-        
-        selected_nav = st.selectbox('Navigate to:', nav_options, key='product_drill_nav')
-        
-        if selected_nav == 'Year View':
-            st.session_state.product_drill = 'year'
-            st.session_state.product_selected_year = None
-            st.session_state.product_selected_quarter = None
-            st.session_state.product_selected_month = None
-            st.rerun()
-        elif selected_nav.startswith('Quarter View'):
-            st.session_state.product_drill = 'quarter'
-            st.rerun()
-        elif selected_nav.startswith('Month View'):
-            st.session_state.product_drill = 'month'
-            st.rerun()
-        elif selected_nav.startswith('Week View'):
-            st.session_state.product_drill = 'week'
-            st.rerun()
+        # Display in Streamlit
+        st.pyplot(fig, use_container_width=True)
+        plt.close()
         
 elif eda_option == "Sales Overview":
     # Column mapping for inventory data
