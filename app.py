@@ -2015,23 +2015,30 @@ elif eda_option == "Inventory Overview":
             nav_options.append(f'Week View ({st.session_state.selected_year} Q{st.session_state.selected_quarter[-1]} {st.session_state.selected_month})')
         
         # Always show selection box
+        if 'last_nav_selection' not in st.session_state:
+            st.session_state.last_nav_selection = 'Year View'
+        
         selected_nav = st.selectbox('Navigate to:', nav_options, key='drill_nav')
         
-        if selected_nav == 'Year View':
-            st.session_state.drill = 'year'
-            st.session_state.selected_year = None
-            st.session_state.selected_quarter = None
-            st.session_state.selected_month = None
-            st.rerun()
-        elif selected_nav.startswith('Quarter View'):
-            st.session_state.drill = 'quarter'
-            st.rerun()
-        elif selected_nav.startswith('Month View'):
-            st.session_state.drill = 'month'
-            st.rerun()
-        elif selected_nav.startswith('Week View'):
-            st.session_state.drill = 'week'
-            st.rerun()
+        # Only rerun if selection actually changed
+        if selected_nav != st.session_state.last_nav_selection:
+            st.session_state.last_nav_selection = selected_nav
+            
+            if selected_nav == 'Year View':
+                st.session_state.drill = 'year'
+                st.session_state.selected_year = None
+                st.session_state.selected_quarter = None
+                st.session_state.selected_month = None
+                st.rerun()
+            elif selected_nav.startswith('Quarter View'):
+                st.session_state.drill = 'quarter'
+                st.rerun()
+            elif selected_nav.startswith('Month View'):
+                st.session_state.drill = 'month'
+                st.rerun()
+            elif selected_nav.startswith('Week View'):
+                st.session_state.drill = 'week'
+                st.rerun()
 
     # ---------- STORE ANALYSIS ----------
     if 'store_id' in df.columns and col_stock_value:
