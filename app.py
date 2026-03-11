@@ -1842,7 +1842,7 @@ elif eda_option == "Inventory Overview":
         unsafe_allow_html=True
     )
 
-    # ---------- TABLEAU DASHBOARD BUTTON ----------
+    # ---------- STOCK VALUE BY TIME ----------
     st.markdown(
         """
         <div style="
@@ -1855,32 +1855,15 @@ elif eda_option == "Inventory Overview":
             margin-bottom:10px;
             text-align:center;
         ">
-            <b>Advanced Analytics Dashboard</b>
+            <b>Stock Value By Time</b>
         </div>
         """,
         unsafe_allow_html=True
     )
     
-    st.markdown(
-        """
-        <div style="
-            background-color:#E6F3FF;
-            padding:20px;
-            border-radius:12px;
-            border: 2px solid #2F75B5;
-            text-align:center;
-            margin-bottom:20px;
-        ">
-            <p style="font-size:16px; color:#0B2C5D; margin-bottom:15px;">
-                Access comprehensive analytics and interactive visualizations through our Tableau dashboard
-            </p>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-    
-    # Tableau Dashboard Button
-    if st.button("📊 Open Tableau Dashboard", use_container_width=True):
+    # Button to open Tableau dashboard
+    if st.button("📊 Stock Value By Time", use_container_width=True):
+        # Option 1: Open in new tab (current)
         st.markdown(
             """
             <script>
@@ -1889,28 +1872,17 @@ elif eda_option == "Inventory Overview":
             """,
             unsafe_allow_html=True
         )
-        st.info("📊 Tableau dashboard opened in a new tab!")
-        st.markdown(
-            """
-            <div style="
-                background-color:#E8F5E8;
-                padding:15px;
-                border-radius:8px;
-                border-left: 4px solid #28A745;
-                margin-top:10px;
-            ">
-                <p style="margin:0; color:#155724;">
-                    <strong>Dashboard Link:</strong> 
-                    <a href="https://public.tableau.com/app/profile/tharani.g3201/viz/Book1_17731518199010/Sheet1?publish=yes" 
-                       target="_blank" 
-                       style="color:#007BFF; text-decoration:none;">
-                        Open Advanced Analytics Dashboard
-                    </a>
-                </p>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+        st.success("📊 Opening stock value graph in new tab!")
+        
+        # Option 2: Embed in same page (commented out - uncomment to use)
+        # st.markdown("""
+        #     <iframe 
+        #         src="https://public.tableau.com/app/profile/tharani.g3201/viz/Book1_17731518199010/Sheet1?publish=yes"
+        #         width="100%" 
+        #         height="800" 
+        #         frameborder="0">
+        #     </iframe>
+        # """, unsafe_allow_html=True)
 
     # ---------- STORE ANALYSIS ----------
     if 'store_id' in df.columns and col_stock_value:
