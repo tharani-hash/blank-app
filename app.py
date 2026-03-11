@@ -1439,6 +1439,10 @@ alt.themes.enable("transparent_theme")
 # STEP 3 – EDA (LOCKED UNTIL PREPROCESSING)
 # ============================================================
 
+# Initialize preprocessing_completed if not exists
+if "preprocessing_completed" not in st.session_state:
+    st.session_state.preprocessing_completed = False
+
 if not st.session_state.preprocessing_completed:
     st.info("Please apply at least one data pre-processing step to unlock EDA.")
     st.stop()
