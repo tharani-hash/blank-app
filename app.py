@@ -464,7 +464,7 @@ st.markdown(
 @st.cache_data
 def load_data():
     """Load data with cache clearing for fresh data"""
-    return pd.read_csv("FACT_SUPPLY_CHAIN_FINAL.csv")
+    return pd.read_csv("FACT_SUPPLY_CHAIN_DATA.csv")
 
 
 # CENTERED SMALL PLOT FUNCTION
