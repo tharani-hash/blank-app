@@ -1510,6 +1510,70 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+# Add the navigation menu that appears in the reference image
+st.markdown("### List of Analytics")
+st.markdown("<div style='margin-top:6px'></div>", unsafe_allow_html=True)
+
+if "eda_option" not in st.session_state:
+    st.session_state.eda_option = None
+
+def nav_button(label, value):
+    """Navigation button with active highlighting"""
+    if st.session_state.eda_option == value:
+        st.markdown(
+            f"""
+            <div style="
+                background-color:#4F97EE;
+                color:white;
+                padding:14px;
+                border-radius:10px;
+                font-weight:600;
+                text-align:center;
+                margin-bottom:12px;
+            ">
+                {label}
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+    else:
+        if st.button(label, use_container_width=True):
+            st.session_state.eda_option = value
+            st.rerun()
+
+with st.expander(" ", expanded=True):
+    row1 = st.columns(5)
+    row2 = st.columns(4)
+
+    with row1[0]:
+        nav_button("Data Quality Overview", "Data Quality Overview")
+    with row1[1]:
+        nav_button("Sales Overview", "Sales Overview")
+    with row1[2]:
+        nav_button("Promotion Effectiveness", "Promotion Effectiveness")
+    with row1[3]:
+        nav_button("Product-Level Analysis", "Product-Level Analysis")
+    with row1[4]:
+        nav_button("Customer-Level Analysis", "Customer-Level Analysis")
+
+    with row2[0]:
+        nav_button("Event Impact Analysis", "Event Impact Analysis")
+    with row2[1]:
+        nav_button("Store-Level Analysis", "Store-Level Analysis")
+    with row2[2]:
+        nav_button("Sales Channel Analysis", "Sales Channel Analysis")
+    with row2[3]:
+        nav_button("Summary Report", "Summary Report")
+
+eda_option = st.session_state.eda_option
+if eda_option is not None:
+    st.session_state.eda_completed = True
+
+st.markdown("<div style='margin-top:6px'></div>", unsafe_allow_html=True)
+
+if eda_option is None:
+    st.info("Select an analysis to view insights.")
+
 df = st.session_state.get("df", None)
 
 if df is None:
