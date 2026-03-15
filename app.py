@@ -5,67 +5,8 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import io
 import numpy as np
-import streamlit as st
 import altair as alt
 import plotly.express as px
-
-# ============================================================================
-# CUSTOM OPTION MENU FUNCTION
-# ============================================================================
-
-def custom_option_menu(options, default_index=0, orientation="horizontal", icons=None):
-    """
-    Custom option menu function that mimics streamlit-option-menu using standard Streamlit components
-    
-    Args:
-        options: List of option strings
-        default_index: Default selected index
-        orientation: "horizontal" or "vertical"
-        icons: Optional list of icons (not displayed in this simple version)
-    
-    Returns:
-        Selected option string
-    """
-    if orientation == "horizontal":
-        # Create columns for horizontal layout
-        columns = st.columns(len(options))
-        selected = None
-        
-        for i, (col, option) in enumerate(zip(columns, options)):
-            with col:
-                if i == default_index:
-                    # Highlight the default/active option
-                    st.markdown(
-                        f"""
-                        <div style="
-                            background-color: #00D05E;
-                            color: white;
-                            padding: 10px 15px;
-                            border-radius: 8px;
-                            text-align: center;
-                            font-weight: 600;
-                            margin-bottom: 10px;
-                        ">
-                            {option}
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
-                    selected = option
-                else:
-                    if st.button(option, use_container_width=True):
-                        st.rerun()
-                        return option
-        return selected if selected else options[default_index]
-    else:
-        # Vertical layout
-        selected = st.radio(
-            "Select an option:",
-            options,
-            index=default_index,
-            key=f"option_menu_{hash(str(options))}"
-        )
-        return selected
 
 # ============================================================================
 # HTML TABLE RENDERING FUNCTION
@@ -104,16 +45,37 @@ def render_html_table(df, title=None, max_height=300):
     html_table += '</tbody></table>'
     
     # Wrap in container with scroll
-    html_container = f'''
-    <div style="max-height: {max_height}px; overflow-y: auto; border: 1px solid #ddd;">
+    full_html = f'''
+    <div style="max-height: {max_height}px; overflow-y: auto; border: 2px solid #2F75B5; border-radius: 8px; background: #E6F3FF; padding: 0;">
         {html_table}
     </div>
+    
+    <style>
+        /* Custom scrollbar */
+        div::-webkit-scrollbar {{
+            width: 10px;
+        }}
+        div::-webkit-scrollbar-track {{
+            background: #f1f1f1;
+            border-radius: 5px;
+        }}
+        div::-webkit-scrollbar-thumb {{
+            background: #2F75B5;
+            border-radius: 5px;
+        }}
+        div::-webkit-scrollbar-thumb:hover {{
+            background: #1F5F99;
+        }}
+    </style>
     '''
     
-    st.markdown(html_container, unsafe_allow_html=True)
+    if title:
+        full_html = f"### {title}" + full_html
+    
+    return full_html
 
 # ============================================================================
-# COLUMN MAPPING FUNCTION
+# SAFE COLUMN MAPPING FUNCTION
 # ============================================================================
 
 def map_col(candidates):
@@ -179,19 +141,20 @@ st.markdown("""
     background-color: #f0f2f6 !important;
 }
 
+
 /* Remove main section spacing */
 section.main > div:first-child {
     padding-top: 0rem !important;
     margin-top: 0rem !important;
 }
 
-/* 🔥 REMOVE TOP GAP COMPLETELY */
+/* REMOVE TOP GAP COMPLETELY */
 [data-testid="stAppViewContainer"] {
     padding-top: 0rem !important;
     margin-top: 0rem !important;
 }
 
-/* 🔥 REMOVE TOP SPACER DIV */
+/* REMOVE TOP SPACER DIV */
 [data-testid="stAppViewContainer"] > div:first-child {
     margin-top: 0rem !important;
     padding-top: 0rem !important;
@@ -206,6 +169,41 @@ header[data-testid="stHeader"] {
 header[data-testid="stHeader"] * {
     color: #000000 !important;
 }
+
+
+
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown("""
+<style>
+
+/* Block container — single source of truth */
+.block-container {
+    padding-left: 2rem !important;
+    padding-right: 2rem !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+}
+
+section.main > div {
+    padding-left: 0rem !important;
+    padding-right: 0rem !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+}
+
+[data-testid="stAppViewContainer"] {
+    padding-left: 0rem !important;
+    padding-right: 0rem !important;
+    overflow-x: hidden !important;
+}
+            
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown("""
+<style>
 
 /* =========================================
    RADIO CONTAINER – FULL WIDTH
@@ -265,14 +263,100 @@ div[data-baseweb="radio"] {
     margin-right: 28px;
 }
 
+          
+
 </style>
 """, unsafe_allow_html=True)
 
+st.markdown(""" 
+ <style> /* Expander outer card */ 
+    div[data-testid="stExpander"]
+        { background-color: #2F75B5;
+        border-radius: 20px; 
+        border: 1px solid #9EDAD0; 
+        overflow: hidden; /* fixes unfinished edges */ }
+    /* Hide expander header completely */
+    div[data-testid="stExpander"]:nth-of-type(1)
+             summary { display: none; }
+    /* Inner content padding fix */
+     div[data-testid="stExpander"]:nth-of-type(1) > 
+            div { padding: 22px 18px; } 
+            </style> """, unsafe_allow_html=True)
 
+st.markdown("""
+<style>
 
+/* =========================================
+   SUMMARY GRID (CENTERED, SMALL, EQUAL BOXES)
+   ========================================= */
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 14px;
+    margin: 6px 0 10px 0;
+    justify-content: center;
+    
+}
 
+/* =========================================
+   SUMMARY CARD (TABLE CONTAINER)
+   ========================================= */
+.summary-card {
+    border: 2px solid #6B7280;
+    border-radius: 2px;
+    background-color: #F8FAFC;
+    overflow: hidden;
+    text-align: center;
+}
 
+/* =========================================
+   HEADER ROW (NO WRAP, SAME HEIGHT)
+   ========================================= */
+.summary-title {
+    background-color:#1F3A5F;
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 8px 6px;
+    border-bottom: 1px solid #6B7280;
 
+    white-space: nowrap;       /* stop wrapping */
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* =========================================
+   VALUE CELL (COMPACT)
+   ========================================= */
+.summary-value {
+    font-size: 22px;
+    font-weight: 600;
+    color: #000000;
+    padding: 1px 0;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown("""
+<style>
+/* Outer gray wrap */
+.gray-analytics-wrap {
+    background-color: #E6E6E6;
+    padding: 16px 400px;
+    border-radius: 8px;
+    width: 100%;              
+    box-sizing: border-box;
+}
+
+/* Inner blue analytics bar */
+.analytics-container {
+    background-color:#1F6FB2;
+    padding:18px;
+    border-radius:14px;
+}
+</style>
+""", unsafe_allow_html=True)
 
 st.markdown(
     """
@@ -406,40 +490,6 @@ element-container .axis text {
 </style>
 """, unsafe_allow_html=True)
 
-# Fix chart text visibility
-st.markdown("""
-<style>
-/* Streamlit chart text visibility fix */
-.streamlit-charts text,
-.streamlit-charts .tick text,
-.streamlit-charts .axis text,
-.streamlit-charts .label,
-.streamlit-charts .legend text {
-    fill: #000000 !important;
-    color: #000000 !important;
-    font-weight: 600 !important;
-}
-
-/* Fix bar chart specifically */
-.stBarChart text,
-.stBarChart .tick text,
-.stBarChart .axis text,
-.stBarChart .label {
-    fill: #000000 !important;
-    color: #000000 !important;
-    font-weight: 600 !important;
-}
-
-/* General chart styling */
-element-container text,
-element-container .tick text,
-element-container .axis text {
-    fill: #000000 !important;
-    color: #000000 !important;
-}
-</style>
-""", unsafe_allow_html=True)
-
 
 
 st.markdown(
@@ -466,6 +516,76 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
+# Main Navigation Menu - EXACTLY like the reference image
+st.markdown("""
+<style>
+.main-nav {
+    background-color: #00D05E;
+    padding: 0;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    overflow: hidden;
+}
+
+.main-nav .stRadio > div {
+    background-color: #00D05E;
+    padding: 16px 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.main-nav div[data-baseweb="radio-group"] {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    gap: 0 !important;
+    width: 100%;
+}
+
+.main-nav div[data-baseweb="radio"] {
+    margin: 0 !important;
+    padding: 0 20px !important;
+    border-right: 2px solid rgba(255,255,255,0.3);
+}
+
+.main-nav div[data-baseweb="radio"]:last-child {
+    border-right: none !important;
+}
+
+.main-nav div[data-baseweb="radio"] label {
+    color: #FFFFFF !important;
+    font-size: 16px !important;
+    font-weight: 600 !important;
+    white-space: nowrap !important;
+}
+
+.main-nav div[data-baseweb="radio"]:has(input:checked) label {
+    background-color: rgba(255,255,255,0.2) !important;
+    border-radius: 4px !important;
+    padding: 8px 12px !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# Main navigation options
+main_pages = ["Data Collection & Integration", "Data Pre-Processing", "Exploratory Data Analysis", "Feature Engineering", "ML Implementation"]
+
+if "main_page" not in st.session_state:
+    st.session_state.main_page = "Exploratory Data Analysis"
+
+# Create the main navigation
+st.markdown('<div class="main-nav">', unsafe_allow_html=True)
+selected_main = st.radio(
+    "",
+    main_pages,
+    index=main_pages.index(st.session_state.main_page),
+    key="main_navigation",
+    horizontal=True
+)
+st.session_state.main_page = selected_main
+st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown(
     """
@@ -524,10 +644,11 @@ st.markdown(
 )
 
 
-# CSV LOADER FUNCTION (DEPLOYMENT SAFE)
+# MYSQL LOADER FUNCTION
 @st.cache_data
 def load_data():
-    return pd.read_csv("FACT_SUPPLY_CHAIN_DATA.csv")
+    """Load data with cache clearing for fresh data"""
+    return pd.read_csv("FACT_SUPPLY_CHAIN_FINAL.csv")
 
 
 # CENTERED SMALL PLOT FUNCTION
@@ -619,9 +740,12 @@ if df is not None:
         unsafe_allow_html=True
     )
 
-    render_html_table(
-        df.head(20),
-        max_height=260
+    st.markdown(
+        render_html_table(
+            df.head(20),
+            max_height=260
+        ),
+        unsafe_allow_html=True
     )
 else:
     st.info("Click the button above to load the dataset.")
@@ -871,7 +995,11 @@ leading to <b>over-forecasting</b>.
             f"#### Before Duplicate Removal ({before_df.shape[0]} Rows)"
         )
         st.write("")
-        st.dataframe(before_df, use_container_width=True)
+        render_html_table(
+            before_df,
+            title=None,
+            max_height=300
+        )
 
         st.markdown("<br>", unsafe_allow_html=True)
 
@@ -880,7 +1008,11 @@ leading to <b>over-forecasting</b>.
             f"####  After Duplicate Removal ({after_df.shape[0]} Rows)"
         )
         st.write("")
-        st.dataframe(after_df, use_container_width=True)
+        render_html_table(
+            after_df,
+            title=None,
+            max_height=300
+        )
 
         st.markdown("<br>", unsafe_allow_html=True)
 
@@ -889,7 +1021,11 @@ leading to <b>over-forecasting</b>.
             f"#### Duplicates Removed ({removed_df.shape[0]} Rows)"
         )
         st.write("")
-        st.dataframe(removed_df, use_container_width=True)
+        render_html_table(
+            removed_df,
+            title=None,
+            max_height=300  # smaller is fine here
+        )
 
 
 
@@ -1082,13 +1218,13 @@ if step == "Remove Outliers":
             # ===== BEFORE =====
         st.markdown(f"#### Before Outlier Handling ({before_df.shape[0]} Rows)")
         st.write("")
-        st.dataframe(before_df, use_container_width=True)
+        render_html_table(before_df, max_height=300)
         st.write("")
 
         # ===== AFTER =====
         st.markdown(f"#### After Outlier Handling ({after_df.shape[0]} Rows)")
         st.write("")
-        st.dataframe(after_df, use_container_width=True)
+        render_html_table(after_df, max_height=300)
         
 
         st.markdown("<br>", unsafe_allow_html=True)
@@ -1096,7 +1232,7 @@ if step == "Remove Outliers":
         # ===== REMOVED =====
         st.markdown(f"####  Outliers Removed ({removed_df.shape[0]} Rows)")
         st.write("")
-        st.dataframe(removed_df, use_container_width=True)
+        render_html_table(removed_df, max_height=300)
 
 
 
@@ -1273,13 +1409,13 @@ elif step == "Replace Missing Values":
         # Show full datasets
         st.markdown(f"#### Full Dataset Before Replacement ({len(df_before_full)} Rows)")
         st.write("")
-        st.dataframe(df_before_full.head(20), use_container_width=True)  # Show first 20 rows
+        render_html_table(df_before_full.head(20))  # Show first 20 rows
         
         st.markdown("<br>", unsafe_allow_html=True)
 
         st.markdown(f"#### Full Dataset After Replacement ({len(df_after_full)} Rows)")
         st.write("")
-        st.dataframe(df_after_full.head(20), use_container_width=True)  # Show first 20 rows
+        render_html_table(df_after_full.head(20))  # Show first 20 rows
 
 
 
@@ -1455,6 +1591,7 @@ div[data-baseweb="radio"] input:checked + div {
 </style>
 """, unsafe_allow_html=True)
 
+
 # Global transparent theme
 def transparent_theme():
     return {
@@ -1509,70 +1646,6 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-
-# Add the navigation menu that appears in the reference image
-st.markdown("### List of Analytics")
-st.markdown("<div style='margin-top:6px'></div>", unsafe_allow_html=True)
-
-if "eda_option" not in st.session_state:
-    st.session_state.eda_option = None
-
-def nav_button(label, value):
-    """Navigation button with active highlighting"""
-    if st.session_state.eda_option == value:
-        st.markdown(
-            f"""
-            <div style="
-                background-color:#4F97EE;
-                color:white;
-                padding:14px;
-                border-radius:10px;
-                font-weight:600;
-                text-align:center;
-                margin-bottom:12px;
-            ">
-                {label}
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-    else:
-        if st.button(label, use_container_width=True):
-            st.session_state.eda_option = value
-            st.rerun()
-
-with st.expander(" ", expanded=True):
-    row1 = st.columns(5)
-    row2 = st.columns(4)
-
-    with row1[0]:
-        nav_button("Data Quality Overview", "Data Quality Overview")
-    with row1[1]:
-        nav_button("Sales Overview", "Sales Overview")
-    with row1[2]:
-        nav_button("Promotion Effectiveness", "Promotion Effectiveness")
-    with row1[3]:
-        nav_button("Product-Level Analysis", "Product-Level Analysis")
-    with row1[4]:
-        nav_button("Customer-Level Analysis", "Customer-Level Analysis")
-
-    with row2[0]:
-        nav_button("Event Impact Analysis", "Event Impact Analysis")
-    with row2[1]:
-        nav_button("Store-Level Analysis", "Store-Level Analysis")
-    with row2[2]:
-        nav_button("Sales Channel Analysis", "Sales Channel Analysis")
-    with row2[3]:
-        nav_button("Summary Report", "Summary Report")
-
-eda_option = st.session_state.eda_option
-if eda_option is not None:
-    st.session_state.eda_completed = True
-
-st.markdown("<div style='margin-top:6px'></div>", unsafe_allow_html=True)
-
-if eda_option is None:
-    st.info("Select an analysis to view insights.")
 
 df = st.session_state.get("df", None)
 
