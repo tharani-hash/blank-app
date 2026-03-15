@@ -5,10 +5,80 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import io
 import numpy as np
-from utils.html_table import render_html_table
-import streamlit as st
 import altair as alt
-from streamlit_option_menu import option_menu
+
+# ============================================================================
+# HTML TABLE RENDERING FUNCTION (LOCAL - NO IMPORT NEEDED)
+# ============================================================================
+
+def render_html_table(df, title=None, max_height=300):
+    """
+    Render a beautiful, professional HTML table with white headers and horizontal rows.
+    
+    Args:
+        df: DataFrame to display
+        title: Optional title for the table
+        max_height: Maximum height in pixels
+    """
+    if df.empty:
+        st.info("No data to display")
+        return ""
+    
+    # Build HTML table manually for better control
+    html_table = '<table style="width: 100%; border-collapse: collapse; font-family: Arial, sans-serif; border: 2px solid #2F75B5; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 12px rgba(47, 117, 181, 0.15);">'
+    
+    # Header row with blue background and WHITE text
+    html_table += '<thead><tr style="background: linear-gradient(135deg, #2F75B5, #1F5F99); color: white; font-weight: bold; text-align: left;">'
+    for col in df.columns:
+        html_table += f'<th style="padding: 12px 15px; font-size: 13px; font-weight: bold; border-bottom: 2px solid #1a4d80; color: white; white-space: nowrap;">{col}</th>'
+    html_table += '</tr></thead>'
+    
+    # Data rows with alternating colors - displayed horizontally
+    html_table += '<tbody>'
+    for i, (_, row) in enumerate(df.iterrows()):
+        bg_color = '#E6F3FF' if i % 2 == 0 else '#F0F8FF'  # Blue theme colors
+        html_table += f'<tr style="background-color: {bg_color}; transition: all 0.3s ease;" onmouseover="this.style.backgroundColor=\'#B8D4FF\'" onmouseout="this.style.backgroundColor=\'{bg_color}\'">'
+        for val in row:
+            html_table += f'<td style="padding: 10px 15px; border-bottom: 1px solid #B8D4FF; color: #0B2C5D; font-size: 12px; text-align: left;">{val}</td>'
+        html_table += '</tr>'
+    html_table += '</tbody></table>'
+    
+    # Wrap in container with scroll
+    full_html = f'''
+    <div style="max-height: {max_height}px; overflow-y: auto; border: 2px solid #2F75B5; border-radius: 8px; background: #E6F3FF; padding: 0;">
+        {html_table}
+    </div>
+    '''
+    
+    st.markdown(full_html, unsafe_allow_html=True)
+
+# ============================================================================
+# CUSTOM OPTION MENU FUNCTION (REPLACES streamlit_option_menu)
+# ============================================================================
+
+def custom_option_menu(menu_title, options, icons=None, default_index=0, orientation="horizontal", styles=None):
+    """
+    Custom option menu function to replace streamlit-option-menu dependency
+    """
+    if icons is None:
+        icons = ["📊"] * len(options)
+    
+    if orientation == "horizontal":
+        cols = st.columns(len(options))
+        selected_idx = default_index
+        
+        for i, (col, option, icon) in enumerate(zip(cols, options, icons)):
+            with col:
+                if st.button(f"{icon}\n{option}", use_container_width=True, key=f"menu_{i}"):
+                    selected_idx = i
+                    st.session_state.selected_menu_option = option
+                    st.rerun()
+        
+        return options[selected_idx] if hasattr(st.session_state, 'selected_menu_option') else options[default_index]
+    else:
+        # Vertical menu
+        selected = st.selectbox(menu_title, options, index=default_index)
+        return selected
 
 
 st.set_page_config(page_title="SupplySyncAI – MLOps UI", layout="wide")
