@@ -5,7 +5,10 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import io
 import numpy as np
+from utils.html_table import render_html_table
+import streamlit as st
 import altair as alt
+from streamlit_option_menu import option_menu
 import plotly.express as px
 
 # ============================================================================
@@ -123,120 +126,112 @@ st.set_page_config(page_title="AI-Driven Stock Rebalancing", layout="wide")
 st.markdown("""
 <style>
 
-/* App background */
+/* App background #EDEDED*/
 .stApp {
-    background-color: #F0F8FF;  /* Light blue background */
+    background-color: #EDEDED;
     margin: 0;
     padding: 0;
 }
 
-/* 🔥 Remove ALL app-level top spacing */
+/* Remove block spacing */
 .block-container {
     padding-top: 0rem !important;
-    margin-top: 0rem !important;
+    margin-top: -5.5rem !important;
+    
+}
+/* keep app background */
+.main {
+    background-color: #f0f2f6 !important;
 }
 
-/* 🔥 Remove internal main section padding */
+/* Remove main section spacing */
 section.main > div:first-child {
     padding-top: 0rem !important;
     margin-top: 0rem !important;
 }
 
-/* ✅ KEEP header visible (do NOT hide it) */
-header {
-    position: relative;
+/* 🔥 REMOVE TOP GAP COMPLETELY */
+[data-testid="stAppViewContainer"] {
+    padding-top: 0rem !important;
+    margin-top: 0rem !important;
 }
 
-</style>
-""", unsafe_allow_html=True)
+/* 🔥 REMOVE TOP SPACER DIV */
+[data-testid="stAppViewContainer"] > div:first-child {
+    margin-top: 0rem !important;
+    padding-top: 0rem !important;
+}
 
-st.markdown("""
-<style>
+/* KEEP header visible */
+header[data-testid="stHeader"] {
+    position: relative;
+    background-color: #EDEDED !important;
+}
+
+header[data-testid="stHeader"] * {
+    color: #000000 !important;
+}
 
 /* =========================================
    RADIO CONTAINER – FULL WIDTH
    ========================================= */
-div.stRadio {
-    width: 100%;
-    padding: 0 !important;
-    margin: 0 !important;
+div.element-container:has(div.stRadio) {
+    width: 100% !important;
 }
 
 /* =========================================
    Teal WRAP BOX – FULL PAGE WIDTH
    ========================================= */
 div.stRadio > div {
-    background-color:  #0D9488;
-    padding: 16px 400px;
+    background-color:  #00D05E;
+    padding: 16px 0px;
     border-radius: 8px;
-    width: 100%;              
+    width: 100%;
     box-sizing: border-box;
+    display: flex;
+    justify-content: center;
 }
 
 /* =========================================
-   RADIO GROUP ALIGNMENT - SIMPLIFIED
+   RADIO GROUP ALIGNMENT
    ========================================= */
 div[data-baseweb="radio-group"] {
     display: flex !important;
-    flex-direction: row !important;
     justify-content: center !important;
-    align-items: center !important;
-    flex-wrap: nowrap !important;
+    align-items: center;
+    gap: 50px;
+    width: 100%;
+    margin: 0 auto;
 }
-
-/* Target individual radio options */
+            
 div[data-baseweb="radio"] {
-    display: inline-flex !important;
-    align-items: center !important;
-    margin: 0 20px 0 0 !important;
-    padding: 0 !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 /* =========================================
    RADIO OPTION TEXT
    ========================================= */
+/* RADIO LABEL TEXT – FORCE WHITE */
 div[data-baseweb="radio"] label,
 div[data-baseweb="radio"] label span {
     font-size: 18px !important;
     font-weight: 800 !important;
     color: #FFFFFF !important;
-    white-space: nowrap !important;
-    display: inline-block !important;
-    margin: 0 !important;
-    padding: 0 !important;
+    white-space: nowrap;
 }
 
-/* Force Streamlit radio to be horizontal */
-.stRadio > div > div {
-    display: flex !important;
-    flex-direction: row !important;
-    justify-content: center !important;
-    align-items: center !important;
-}
 
-.stRadio > div > div > div {
-    display: inline-flex !important;
-    margin-right: 20px !important;
+/* =========================================
+   SPACE BETWEEN OPTIONS
+   ========================================= */
+div[data-baseweb="radio"] {
+    margin-right: 28px;
 }
 
 </style>
 """, unsafe_allow_html=True)
-
-
-st.markdown(""" 
- <style> /* Expander outer card */ 
-    div[data-testid="stExpander"]
-        { background-color: #2F75B5;
-        border-radius: 20px; 
-        border: 1px solid #9EDAD0; 
-        overflow: hidden; /* fixes unfinished edges */ }
-    /* Hide expander header completely */
-    div[data-testid="stExpander"]:nth-of-type(1)
-             summary { display: none; }
-    /* Inner content padding fix */
-     div[data-testid="stExpander"]:nth-of-type(1) > 
-            div { padding: 22px 18px; } 
-            </style> """, unsafe_allow_html=True)
 
 
 
@@ -376,6 +371,40 @@ element-container .axis text {
 </style>
 """, unsafe_allow_html=True)
 
+# Fix chart text visibility
+st.markdown("""
+<style>
+/* Streamlit chart text visibility fix */
+.streamlit-charts text,
+.streamlit-charts .tick text,
+.streamlit-charts .axis text,
+.streamlit-charts .label,
+.streamlit-charts .legend text {
+    fill: #000000 !important;
+    color: #000000 !important;
+    font-weight: 600 !important;
+}
+
+/* Fix bar chart specifically */
+.stBarChart text,
+.stBarChart .tick text,
+.stBarChart .axis text,
+.stBarChart .label {
+    fill: #000000 !important;
+    color: #000000 !important;
+    font-weight: 600 !important;
+}
+
+/* General chart styling */
+element-container text,
+element-container .tick text,
+element-container .axis text {
+    fill: #000000 !important;
+    color: #000000 !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
 
 
 st.markdown(
@@ -460,10 +489,9 @@ st.markdown(
 )
 
 
-# MYSQL LOADER FUNCTION
+# CSV LOADER FUNCTION (DEPLOYMENT SAFE)
 @st.cache_data
 def load_data():
-    """Load data with cache clearing for fresh data"""
     return pd.read_csv("FACT_SUPPLY_CHAIN_DATA.csv")
 
 
@@ -1406,7 +1434,6 @@ div[data-baseweb="radio"] input:checked + div {
 
 </style>
 """, unsafe_allow_html=True)
-
 
 # Global transparent theme
 def transparent_theme():
