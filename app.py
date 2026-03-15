@@ -7,8 +7,65 @@ import io
 import numpy as np
 import streamlit as st
 import altair as alt
-from streamlit_option_menu import option_menu
 import plotly.express as px
+
+# ============================================================================
+# CUSTOM OPTION MENU FUNCTION
+# ============================================================================
+
+def custom_option_menu(options, default_index=0, orientation="horizontal", icons=None):
+    """
+    Custom option menu function that mimics streamlit-option-menu using standard Streamlit components
+    
+    Args:
+        options: List of option strings
+        default_index: Default selected index
+        orientation: "horizontal" or "vertical"
+        icons: Optional list of icons (not displayed in this simple version)
+    
+    Returns:
+        Selected option string
+    """
+    if orientation == "horizontal":
+        # Create columns for horizontal layout
+        columns = st.columns(len(options))
+        selected = None
+        
+        for i, (col, option) in enumerate(zip(columns, options)):
+            with col:
+                if i == default_index:
+                    # Highlight the default/active option
+                    st.markdown(
+                        f"""
+                        <div style="
+                            background-color: #00D05E;
+                            color: white;
+                            padding: 10px 15px;
+                            border-radius: 8px;
+                            text-align: center;
+                            font-weight: 600;
+                            margin-bottom: 10px;
+                        ">
+                            {option}
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+                    selected = option
+                else:
+                    if st.button(option, use_container_width=True):
+                        st.rerun()
+                        return option
+        return selected if selected else options[default_index]
+    else:
+        # Vertical layout
+        selected = st.radio(
+            "Select an option:",
+            options,
+            index=default_index,
+            key=f"option_menu_{hash(str(options))}"
+        )
+        return selected
 
 # ============================================================================
 # HTML TABLE RENDERING FUNCTION
