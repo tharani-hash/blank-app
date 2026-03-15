@@ -5,8 +5,357 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import io
 import numpy as np
+from utils.html_table import render_html_table
+import streamlit as st
 import altair as alt
-import plotly.express as px
+from streamlit_option_menu import option_menu
+
+
+st.set_page_config(page_title="SupplySyncAI – MLOps UI", layout="wide")
+
+st.markdown("""
+<style>
+
+/* App background #EDEDED*/
+.stApp {
+    background-color: #EDEDED;
+    margin: 0;
+    padding: 0;
+}
+
+/* Remove block spacing */
+.block-container {
+    padding-top: 0rem !important;
+    margin-top: -5.5rem !important;
+    
+}
+/* keep app background */
+.main {
+    background-color: #f0f2f6 !important;
+}
+
+
+/* Remove main section spacing */
+section.main > div:first-child {
+    padding-top: 0rem !important;
+    margin-top: 0rem !important;
+}
+
+/* 🔥 REMOVE TOP GAP COMPLETELY */
+[data-testid="stAppViewContainer"] {
+    padding-top: 0rem !important;
+    margin-top: 0rem !important;
+}
+
+/* 🔥 REMOVE TOP SPACER DIV */
+[data-testid="stAppViewContainer"] > div:first-child {
+    margin-top: 0rem !important;
+    padding-top: 0rem !important;
+}
+
+/* KEEP header visible */
+header[data-testid="stHeader"] {
+    position: relative;
+    background-color: #EDEDED !important;
+}
+
+header[data-testid="stHeader"] * {
+    color: #000000 !important;
+}
+
+
+
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown("""
+<style>
+
+/* Block container — single source of truth */
+.block-container {
+    padding-left: 2rem !important;
+    padding-right: 2rem !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+}
+
+section.main > div {
+    padding-left: 0rem !important;
+    padding-right: 0rem !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+}
+
+[data-testid="stAppViewContainer"] {
+    padding-left: 0rem !important;
+    padding-right: 0rem !important;
+    overflow-x: hidden !important;
+}
+            
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown("""
+<style>
+
+/* =========================================
+   RADIO CONTAINER – FULL WIDTH
+   ========================================= */
+div.element-container:has(div.stRadio) {
+    width: 100% !important;
+}
+
+/* =========================================
+   Teal WRAP BOX – FULL PAGE WIDTH
+   ========================================= */
+div.stRadio > div {
+    background-color:  #00D05E;
+    padding: 16px 0px;
+    border-radius: 8px;
+    width: 100%;
+    box-sizing: border-box;
+    display: flex;
+    justify-content: center;
+}
+
+/* =========================================
+   RADIO GROUP ALIGNMENT
+   ========================================= */
+div[data-baseweb="radio-group"] {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center;
+    gap: 50px;
+    width: 100%;
+    margin: 0 auto;
+}
+            
+div[data-baseweb="radio"] {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* =========================================
+   RADIO OPTION TEXT
+   ========================================= */
+/* RADIO LABEL TEXT – FORCE WHITE */
+div[data-baseweb="radio"] label,
+div[data-baseweb="radio"] label span {
+    font-size: 18px !important;
+    font-weight: 800 !important;
+    color: #FFFFFF !important;
+    white-space: nowrap;
+}
+
+
+/* =========================================
+   SPACE BETWEEN OPTIONS
+   ========================================= */
+div[data-baseweb="radio"] {
+    margin-right: 28px;
+}
+
+          
+
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown(""" 
+ <style> /* Expander outer card */ 
+    div[data-testid="stExpander"]
+        { background-color: #2F75B5;
+        border-radius: 20px; 
+        border: 1px solid #9EDAD0; 
+        overflow: hidden; /* 🔑 fixes unfinished edges */ }
+    /* Hide expander header completely */
+    div[data-testid="stExpander"]:nth-of-type(1)
+             summary { display: none; }
+    /* Inner content padding fix */
+     div[data-testid="stExpander"]:nth-of-type(1) > 
+            div { padding: 22px 18px; } 
+            </style> """, unsafe_allow_html=True)
+
+
+
+
+
+
+
+st.markdown(
+    """
+    <style>
+        /* Dark blue themed button */
+        div.stButton > button {
+            background-color: #0B2C5D;   /* Dark blue from your header */
+            color: #FFFFFF;
+            border-radius: 8px;
+            padding: 8px 18px;
+            border: none;
+            font-weight: 600;
+        }
+
+        div.stButton > button:hover {
+            background-color: #08306B;   /* Slightly darker on hover */
+            color: #FFFFFF;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+st.markdown("""
+<style>
+
+/* =========================================
+   SUMMARY GRID (CENTERED, SMALL, EQUAL BOXES)
+   ========================================= */
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 14px;
+    margin: 6px 0 10px 0;
+    justify-content: center;
+    
+}
+
+/* =========================================
+   SUMMARY CARD (TABLE CONTAINER)
+   ========================================= */
+.summary-card {
+    border: 2px solid #6B7280;
+    border-radius: 2px;
+    background-color: #F8FAFC;
+    overflow: hidden;
+    text-align: center;
+}
+
+/* =========================================
+   HEADER ROW (NO WRAP, SAME HEIGHT)
+   ========================================= */
+.summary-title {
+    background-color:#1F3A5F;
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 8px 6px;
+    border-bottom: 1px solid #6B7280;
+
+    white-space: nowrap;       /* 🔥 stop wrapping */
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* =========================================
+   VALUE CELL (COMPACT)
+   ========================================= */
+.summary-value {
+    font-size: 22px;
+    font-weight: 600;
+    color: #000000;
+    padding: 1px 0;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+
+st.markdown("""
+<style>
+/* Outer gray wrap */
+.gray-analytics-wrap {
+    background-color: #E6E6E6;
+    padding: 16px 400px;
+    border-radius: 8px;
+    width: 100%;              
+    box-sizing: border-box;
+}
+
+/* Inner blue analytics bar */
+.analytics-container {
+    background-color:#1F6FB2;
+    padding:18px;
+    border-radius:14px;
+}
+</style>
+""", unsafe_allow_html=True)
+
+
+
+st.markdown(
+    """
+    <div style="
+        background-color:#0B2C5D;
+        padding:35px;
+        border-radius:12px;
+        color:white;
+        text-align:center;
+        margin:0 0 20px 0;
+    ">
+        <h1 style="margin:0 0 8px 0;">
+            AI-Powered Demand Forecasting & Sales Prediction Engine
+        </h1>
+        <h3 style="font-weight:400; margin:0;">
+            From Broad Estimates to SKU-Level Intelligence
+        </h3>
+        <p style="font-size:17px; margin-top:15px;">
+            Predict demand accurately across products, stores, channels,
+            promotions, events, and time.
+        </p>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+st.markdown(
+    """
+    <div style="
+        background-color:#2F75B5;
+        padding:28px;
+        border-radius:12px;
+        color:white;
+        font-size:16px;
+        line-height:1.6;
+        margin-bottom:25px;
+    ">
+
+    <p>
+    This application enables <b>granular demand forecasting and sales prediction</b>
+    by combining transactional data, customer behavior, promotions, events,
+    weather, inventory, and trends into a unified AI-driven analytics pipeline.
+    </p>
+
+    <p>
+    Unlike traditional forecasting systems that operate at a
+    <b>store or category level</b>, this platform provides
+    <b>fine-grained forecasts at the SKU × Store × Time level</b>,
+    empowering data-driven decisions across planning, inventory, and operations.
+    </p>
+
+    <h4 style="margin-top:22px;">Why This Matters</h4>
+    
+    <p>
+    Rurtail demand is influenced by far more than historical sales. 
+    This engine cuptures<b> real-world drivers of demand</b>, including:
+    </p>
+
+    <ul>
+        <li>Customer engagement and loyalty behavior</li>
+        <li>Promotion effectiveness and campaign impact</li>
+        <li>Event-driven demand spikes</li>
+        <li>Weather and trend influences</li>
+        <li>Inventory availability and stock health</li>
+    </ul>
+
+    <p style="margin-top:15px;">
+        <b>The result:</b> More accurate forecasts, reduced stockouts,
+        lower excess inventory, and improved profitability.
+    </p>
+
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
 # ============================================================================
 # HTML TABLE RENDERING FUNCTION
@@ -118,7 +467,7 @@ def get_safe_columns():
 
 
 
-st.set_page_config(page_title="AI-Driven Stock Rebalancing", layout="wide")
+st.set_page_config(page_title="SupplySyncAI – MLOps UI", layout="wide")
 
 st.markdown("""
 <style>
@@ -4817,6 +5166,413 @@ elif eda_option == "Summary Report":
 # FOOTER
 # ============================================================
 
+# ============================================================
+# SUPPLYSYNC ML IMPLEMENTATION
+# ============================================================
+
+import xgboost as xgb
+import plotly.graph_objects as go
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_absolute_error, r2_score
+from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import RandomForestRegressor
+
+# ============================================================
+# 1️⃣ HEADER (SAME STYLE AS SAMPLE PROJECT)
+# ============================================================
+st.markdown("""
+<div style="
+    background-color:#0B2C5D;
+    padding:20px;
+    border-radius:12px;
+    color:white;
+    font-size:20px;
+    font-weight:600;
+    margin-top:40px;
+    margin-bottom:20px;
+">
+Machine Learning Implementation
+</div>
+""", unsafe_allow_html=True)
+
+st.markdown("<div style='margin-bottom:35px'></div>", unsafe_allow_html=True)
+
+# Check if scaled features exist
+if "scaled_features" not in st.session_state:
+    st.warning("Please apply Feature Scaling before training.")
+    st.stop()
+
+# ============================================================
+# 2️⃣ MODEL MENU (LIKE IMAGE + SAMPLE PROJECT)
+# ============================================================
+
+if "model_selected" not in st.session_state:
+    st.session_state["model_selected"] = None
+
+# Custom option menu function to replace streamlit_option_menu
+def custom_model_menu(options, icons=None):
+    if icons is None:
+        icons = ["📊"] * len(options)
+    
+    cols = st.columns(len(options))
+    selected_idx = 0
+    
+    for i, (col, option, icon) in enumerate(zip(cols, options, icons)):
+        with col:
+            if st.button(f"{icon}\n{option}", use_container_width=True):
+                selected_idx = i
+                st.session_state["model_selected"] = option
+                st.rerun()
+    
+    return selected_idx
+
+model_options = [
+    "Time-Series Forecasting (SARIMA/ARIMA)",
+    "Prophet Based Demand Forecast", 
+    "Machine Learning Regression Forecast",
+    "Deep Learning Forecast"
+]
+
+model_icons = ["📈", "📅", "🤖", "🧠"]
+
+selected_model = custom_model_menu(model_options, model_icons)
+
+if st.session_state["model_selected"]:
+    selected_model = st.session_state["model_selected"]
+else:
+    selected_model = model_options[0]
+
+st.markdown("---")
+
+# ============================================================
+# DATA PREPARATION
+# ============================================================
+
+X = st.session_state["scaled_features"].copy()
+y = df[target_column].copy()
+
+X = X.fillna(X.median())
+y = y.fillna(y.median())
+
+split_index = int(len(X) * 0.8)
+
+X_train = X.iloc[:split_index]
+X_test = X.iloc[split_index:]
+
+y_train = y.iloc[:split_index]
+y_test = y.iloc[split_index:]
+
+# ============================================================
+# 3️⃣ MODEL ENGINEERING
+# ============================================================
+
+st.markdown("""
+<div style='background:#FDFBD4;padding:15px;border-radius:10px;margin-top:20px'>
+<b>Model Engineering</b>
+</div>
+""", unsafe_allow_html=True)
+
+st.info(f"Training Samples: {X_train.shape[0]} | Testing Samples: {X_test.shape[0]}")
+
+# ------------------------------------------------------------
+# TIME SERIES MODEL
+# ------------------------------------------------------------
+if selected_model == "Time-Series Forecasting (SARIMA/ARIMA)":
+    try:
+        from statsmodels.tsa.arima.model import ARIMA
+        
+        # Prepare time series data
+        if "created_at" in df.columns:
+            df_sorted = df.sort_values("created_at")
+            y_series = df_sorted[target_column].copy()
+        else:
+            y_series = df[target_column].copy()
+        
+        split_index = int(len(y_series) * 0.8)
+        y_train = y_series.iloc[:split_index]
+        y_test = y_series.iloc[split_index:]
+
+        with st.spinner("Training ARIMA Model..."):
+            model = ARIMA(y_train, order=(1,0,1))
+            model_fit = model.fit()
+            predictions = model_fit.forecast(steps=len(y_test))
+            predictions = pd.Series(predictions, index=y_test.index)
+
+        st.success("ARIMA Model Training Completed")
+
+        # Visualization
+        st.markdown("""
+        <div style='background:#E9F7EF;padding:15px;border-radius:10px;margin-top:25px'>
+        <b>Prediction Visualization</b>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Create timeline for visualization
+        if "created_at" in df.columns:
+            timeline_df = pd.DataFrame({
+                "date": df.iloc[y_test.index]["created_at"],
+                "actual": y_test.values,
+                "predicted": predictions.values
+            })
+            timeline_df = timeline_df.sort_values("date")
+
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(
+                x=timeline_df["date"],
+                y=timeline_df["actual"],
+                mode='lines+markers',
+                name="Actual Sales Demand",
+                line=dict(color='royalblue', width=3),
+                marker=dict(size=6)
+            ))
+            fig.add_trace(go.Scatter(
+                x=timeline_df["date"],
+                y=timeline_df["predicted"],
+                mode='lines',
+                name="Forecasted Demand",
+                line=dict(color='green', width=3, dash="dash")
+            ))
+            fig.update_layout(
+                title="Product Demand Forecasting – Sales Timeline",
+                xaxis_title="Sales Timeline (Transaction Date)",
+                yaxis_title="Product Demand (Units Sold)",
+                legend_title="Demand Type",
+                template="plotly_white"
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            # Simple line plot if no date column
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(
+                x=list(range(len(y_test))),
+                y=y_test.values,
+                mode='lines+markers',
+                name="Actual Sales Demand",
+                line=dict(color='royalblue', width=3)
+            ))
+            fig.add_trace(go.Scatter(
+                x=list(range(len(predictions))),
+                y=predictions.values,
+                mode='lines',
+                name="Forecasted Demand",
+                line=dict(color='green', width=3, dash="dash")
+            ))
+            fig.update_layout(
+                title="Product Demand Forecasting",
+                xaxis_title="Sample Index",
+                yaxis_title="Product Demand (Units Sold)",
+                template="plotly_white"
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+    except ImportError:
+        st.error("statsmodels library not found. Please install it with: pip install statsmodels")
+    except Exception as e:
+        st.error(f"Error in ARIMA model: {str(e)}")
+
+# ------------------------------------------------------------
+# PROPHET MODEL
+# ------------------------------------------------------------
+elif selected_model == "Prophet Based Demand Forecast":
+    try:
+        from prophet import Prophet
+        
+        if "created_at" in df.columns:
+            prophet_df = pd.DataFrame({
+                "ds": pd.to_datetime(df["created_at"]),
+                "y": df[target_column]
+            })
+        else:
+            # Create dummy dates if no date column
+            prophet_df = pd.DataFrame({
+                "ds": pd.date_range(start='2023-01-01', periods=len(df), freq='D'),
+                "y": df[target_column]
+            })
+
+        with st.spinner("Training Prophet Model..."):
+            model = Prophet()
+            model.fit(prophet_df)
+            
+            future = model.make_future_dataframe(periods=len(y_test))
+            forecast = model.predict(future)
+            
+            predictions = forecast["yhat"].tail(len(y_test)).values
+            predictions = pd.Series(predictions, index=y_test.index)
+
+        st.success("Prophet Model Training Completed")
+
+        # Show forecast components
+        st.subheader("Forecast Components")
+        fig1 = model.plot_components(forecast)
+        st.pyplot(fig1, use_container_width=True)
+
+    except ImportError:
+        st.error("Prophet library not found. Please install it with: pip install prophet")
+    except Exception as e:
+        st.error(f"Error in Prophet model: {str(e)}")
+
+# ------------------------------------------------------------
+# MACHINE LEARNING REGRESSION
+# ------------------------------------------------------------
+elif selected_model == "Machine Learning Regression Forecast":
+    
+    with st.spinner("Training ML Regression Models..."):
+        # Train multiple models
+        models = {
+            "Linear Regression": LinearRegression(),
+            "Random Forest": RandomForestRegressor(n_estimators=100, random_state=42),
+            "XGBoost": xgb.XGBRegressor(random_state=42)
+        }
+        
+        model_predictions = {}
+        model_metrics = {}
+        
+        for name, model in models.items():
+            model.fit(X_train, y_train)
+            pred = model.predict(X_test)
+            model_predictions[name] = pred
+            model_metrics[name] = {
+                "MAE": mean_absolute_error(y_test, pred),
+                "R2": r2_score(y_test, pred)
+            }
+    
+    st.success("ML Models Training Completed")
+    
+    # Display model comparison
+    st.subheader("Model Comparison")
+    metrics_df = pd.DataFrame(model_metrics).T
+    st.dataframe(metrics_df)
+    
+    # Best model visualization
+    best_model = min(model_metrics.keys(), key=lambda x: model_metrics[x]["MAE"])
+    best_predictions = model_predictions[best_model]
+    
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=y_test.values,
+        y=best_predictions,
+        mode='markers',
+        name=f"{best_model} Predictions",
+        marker=dict(size=8, color='blue', opacity=0.6)
+    ))
+    
+    # Perfect prediction line
+    fig.add_trace(go.Scatter(
+        x=[y_test.min(), y_test.max()],
+        y=[y_test.min(), y_test.max()],
+        mode='lines',
+        name="Perfect Prediction",
+        line=dict(color='red', dash='dash')
+    ))
+    
+    fig.update_layout(
+        title=f"Actual vs Predicted - {best_model}",
+        xaxis_title="Actual Values",
+        yaxis_title="Predicted Values",
+        template="plotly_white"
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+# ------------------------------------------------------------
+# DEEP LEARNING FORECAST
+# ------------------------------------------------------------
+elif selected_model == "Deep Learning Forecast":
+    try:
+        import tensorflow as tf
+        from tensorflow.keras.models import Sequential
+        from tensorflow.keras.layers import Dense, LSTM, Dropout
+        
+        with st.spinner("Training Deep Learning Model..."):
+            # Prepare data for LSTM
+            # Reshape data for LSTM [samples, timesteps, features]
+            X_train_reshaped = X_train.values.reshape((X_train.shape[0], 1, X_train.shape[1]))
+            X_test_reshaped = X_test.values.reshape((X_test.shape[0], 1, X_test.shape[1]))
+            
+            # Build LSTM model
+            model = Sequential([
+                LSTM(50, activation='relu', input_shape=(1, X_train.shape[1]), return_sequences=True),
+                Dropout(0.2),
+                LSTM(50, activation='relu'),
+                Dropout(0.2),
+                Dense(1)
+            ])
+            
+            model.compile(optimizer='adam', loss='mse', metrics=['mae'])
+            
+            # Train model
+            history = model.fit(
+                X_train_reshaped, y_train,
+                epochs=50,
+                batch_size=32,
+                validation_split=0.2,
+                verbose=0
+            )
+            
+            # Make predictions
+            predictions = model.predict(X_test_reshaped).flatten()
+            predictions = pd.Series(predictions, index=y_test.index)
+        
+        st.success("Deep Learning Model Training Completed")
+        
+        # Show training history
+        st.subheader("Training History")
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=list(range(len(history.history['loss']))),
+            y=history.history['loss'],
+            name='Training Loss',
+            line=dict(color='blue')
+        ))
+        fig.add_trace(go.Scatter(
+            x=list(range(len(history.history['val_loss']))),
+            y=history.history['val_loss'],
+            name='Validation Loss',
+            line=dict(color='red')
+        ))
+        fig.update_layout(
+            title="Model Training Loss",
+            xaxis_title="Epoch",
+            yaxis_title="Loss",
+            template="plotly_white"
+        )
+        st.plotly_chart(fig, use_container_width=True)
+        
+    except ImportError:
+        st.error("TensorFlow library not found. Please install it with: pip install tensorflow")
+    except Exception as e:
+        st.error(f"Error in Deep Learning model: {str(e)}")
+
+# ============================================================
+# 5️⃣ MODEL INSIGHTS
+# ============================================================
+
+if 'predictions' in locals() or selected_model == "Machine Learning Regression Forecast":
+    st.markdown("""
+    <div style='background:#FFF3CD;padding:15px;border-radius:10px;margin-top:25px'>
+    <b>Model Insights</b>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    if selected_model == "Machine Learning Regression Forecast":
+        # Show best model metrics
+        for name, metrics in model_metrics.items():
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric(f"{name} - MAE", round(metrics["MAE"], 2))
+            with col2:
+                st.metric(f"{name} - R²", round(metrics["R2"], 3))
+    else:
+        # Single model metrics
+        try:
+            mae = mean_absolute_error(y_test, predictions)
+            r2 = r2_score(y_test, predictions)
+            
+            col1, col2 = st.columns(2)
+            col1.metric("Mean Absolute Error", round(mae, 2))
+            col2.metric("R² Score", round(r2, 3))
+        except:
+            st.info("Model metrics not available")
+
 st.markdown("""
     <br><br>
     <div style="
@@ -4826,7 +5582,7 @@ st.markdown("""
         color:white;
         border-radius:6px;
         font-size:14px;">
-        © 2025 SupplySyncAI – Smart Inventory Redistribution Engine
+        © 2025 SupplySyncAI – Inventory Intelligence & Analytics Platform
     </div>
 """, unsafe_allow_html=True)
 
