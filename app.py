@@ -1845,27 +1845,26 @@ elif eda_option == "Inventory Overview":
     # ---------- STOCK VALUE BY TIME ----------
     # Button to open Tableau dashboard
     if st.button("📊 Stock Value By Time", use_container_width=True):
-        # Option 1: Open in new tab (commented out)
-        # st.markdown(
-        #     """
-        #     <script>
-        #         window.open('https://public.tableau.com/app/profile/tharani.g3201/viz/Book1_17731518199010/Sheet1?publish=yes', '_blank');
-        #     </script>
-        #     """,
-        #     unsafe_allow_html=True
-        # )
-        # st.success("📊 Opening stock value graph in new tab!")
+        # Open in new tab (most reliable)
+        st.markdown(
+            """
+            <script>
+                window.open('https://public.tableau.com/app/profile/tharani.g3201/viz/Book1_17731518199010/Sheet1?publish=yes', '_blank');
+            </script>
+            """,
+            unsafe_allow_html=True
+        )
+        st.success("📊 Opening stock value graph in new tab!")
         
-        # Option 2: Embed in same page (uncommented)
-        st.markdown("""
-            <iframe 
-                src="https://public.tableau.com/app/profile/tharani.g3201/viz/Book1_17731518199010/Sheet1?publish=yes"
-                width="100%" 
-                height="800" 
-                frameborder="0">
-            </iframe>
-        """, unsafe_allow_html=True)
-        st.success("📊 Stock value graph embedded below!")
+        # Embedding blocked by Tableau Public security
+        # st.markdown("""
+        #     <iframe 
+        #         src="https://public.tableau.com/app/profile/tharani.g3201/viz/Book1_17731518199010/Sheet1?publish=yes"
+        #         width="100%" 
+        #         height="800" 
+        #         frameborder="0">
+        #     </iframe>
+        # """, unsafe_allow_html=True)
 
     # ---------- STORE ANALYSIS ----------
     if 'store_id' in df.columns and col_stock_value:
