@@ -5,7 +5,6 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import io
 import numpy as np
-from utils.html_table import render_html_table
 import streamlit as st
 import altair as alt
 from streamlit_option_menu import option_menu
@@ -48,37 +47,16 @@ def render_html_table(df, title=None, max_height=300):
     html_table += '</tbody></table>'
     
     # Wrap in container with scroll
-    full_html = f'''
-    <div style="max-height: {max_height}px; overflow-y: auto; border: 2px solid #2F75B5; border-radius: 8px; background: #E6F3FF; padding: 0;">
+    html_container = f'''
+    <div style="max-height: {max_height}px; overflow-y: auto; border: 1px solid #ddd;">
         {html_table}
     </div>
-    
-    <style>
-        /* Custom scrollbar */
-        div::-webkit-scrollbar {{
-            width: 10px;
-        }}
-        div::-webkit-scrollbar-track {{
-            background: #f1f1f1;
-            border-radius: 5px;
-        }}
-        div::-webkit-scrollbar-thumb {{
-            background: #2F75B5;
-            border-radius: 5px;
-        }}
-        div::-webkit-scrollbar-thumb:hover {{
-            background: #1F5F99;
-        }}
-    </style>
     '''
     
-    if title:
-        full_html = f"### {title}" + full_html
-    
-    return full_html
+    st.markdown(html_container, unsafe_allow_html=True)
 
 # ============================================================================
-# SAFE COLUMN MAPPING FUNCTION
+# COLUMN MAPPING FUNCTION
 # ============================================================================
 
 def map_col(candidates):
@@ -584,12 +562,9 @@ if df is not None:
         unsafe_allow_html=True
     )
 
-    st.markdown(
-        render_html_table(
-            df.head(20),
-            max_height=260
-        ),
-        unsafe_allow_html=True
+    render_html_table(
+        df.head(20),
+        max_height=260
     )
 else:
     st.info("Click the button above to load the dataset.")
@@ -839,11 +814,7 @@ leading to <b>over-forecasting</b>.
             f"#### Before Duplicate Removal ({before_df.shape[0]} Rows)"
         )
         st.write("")
-        render_html_table(
-            before_df,
-            title=None,
-            max_height=300
-        )
+        st.dataframe(before_df, use_container_width=True)
 
         st.markdown("<br>", unsafe_allow_html=True)
 
@@ -852,11 +823,7 @@ leading to <b>over-forecasting</b>.
             f"####  After Duplicate Removal ({after_df.shape[0]} Rows)"
         )
         st.write("")
-        render_html_table(
-            after_df,
-            title=None,
-            max_height=300
-        )
+        st.dataframe(after_df, use_container_width=True)
 
         st.markdown("<br>", unsafe_allow_html=True)
 
@@ -865,11 +832,7 @@ leading to <b>over-forecasting</b>.
             f"#### Duplicates Removed ({removed_df.shape[0]} Rows)"
         )
         st.write("")
-        render_html_table(
-            removed_df,
-            title=None,
-            max_height=300  # smaller is fine here
-        )
+        st.dataframe(removed_df, use_container_width=True)
 
 
 
@@ -1062,13 +1025,13 @@ if step == "Remove Outliers":
             # ===== BEFORE =====
         st.markdown(f"#### Before Outlier Handling ({before_df.shape[0]} Rows)")
         st.write("")
-        render_html_table(before_df, max_height=300)
+        st.dataframe(before_df, use_container_width=True)
         st.write("")
 
         # ===== AFTER =====
         st.markdown(f"#### After Outlier Handling ({after_df.shape[0]} Rows)")
         st.write("")
-        render_html_table(after_df, max_height=300)
+        st.dataframe(after_df, use_container_width=True)
         
 
         st.markdown("<br>", unsafe_allow_html=True)
@@ -1076,7 +1039,7 @@ if step == "Remove Outliers":
         # ===== REMOVED =====
         st.markdown(f"####  Outliers Removed ({removed_df.shape[0]} Rows)")
         st.write("")
-        render_html_table(removed_df, max_height=300)
+        st.dataframe(removed_df, use_container_width=True)
 
 
 
@@ -1253,13 +1216,13 @@ elif step == "Replace Missing Values":
         # Show full datasets
         st.markdown(f"#### Full Dataset Before Replacement ({len(df_before_full)} Rows)")
         st.write("")
-        render_html_table(df_before_full.head(20))  # Show first 20 rows
+        st.dataframe(df_before_full.head(20), use_container_width=True)  # Show first 20 rows
         
         st.markdown("<br>", unsafe_allow_html=True)
 
         st.markdown(f"#### Full Dataset After Replacement ({len(df_after_full)} Rows)")
         st.write("")
-        render_html_table(df_after_full.head(20))  # Show first 20 rows
+        st.dataframe(df_after_full.head(20), use_container_width=True)  # Show first 20 rows
 
 
 
