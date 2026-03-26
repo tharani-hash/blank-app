@@ -1,92 +1,18 @@
 import streamlit as st
 import pandas as pd
-import mysql.connector
 import seaborn as sns
 import matplotlib.pyplot as plt
 import io
 import numpy as np
 import altair as alt
+from streamlit_option_menu import option_menu
 
-# ============================================================================
-# HTML TABLE RENDERING FUNCTION (LOCAL - NO IMPORT NEEDED)
-# ============================================================================
-
-def render_html_table(df, title=None, max_height=300):
-    """
-    Render a beautiful, professional HTML table with white headers and horizontal rows.
-    
-    Args:
-        df: DataFrame to display
-        title: Optional title for the table
-        max_height: Maximum height in pixels
-    """
-    if df.empty:
-        st.info("No data to display")
-        return ""
-    
-    # Build HTML table manually for better control
-    html_table = '<table style="width: 100%; border-collapse: collapse; font-family: Arial, sans-serif; border: 2px solid #2F75B5; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 12px rgba(47, 117, 181, 0.15);">'
-    
-    # Header row with blue background and WHITE text
-    html_table += '<thead><tr style="background: linear-gradient(135deg, #2F75B5, #1F5F99); color: white; font-weight: bold; text-align: left;">'
-    for col in df.columns:
-        html_table += f'<th style="padding: 12px 15px; font-size: 13px; font-weight: bold; border-bottom: 2px solid #1a4d80; color: white; white-space: nowrap;">{col}</th>'
-    html_table += '</tr></thead>'
-    
-    # Data rows with alternating colors - displayed horizontally
-    html_table += '<tbody>'
-    for i, (_, row) in enumerate(df.iterrows()):
-        bg_color = '#E6F3FF' if i % 2 == 0 else '#F0F8FF'  # Blue theme colors
-        html_table += f'<tr style="background-color: {bg_color}; transition: all 0.3s ease;" onmouseover="this.style.backgroundColor=\'#B8D4FF\'" onmouseout="this.style.backgroundColor=\'{bg_color}\'">'
-        for val in row:
-            html_table += f'<td style="padding: 10px 15px; border-bottom: 1px solid #B8D4FF; color: #0B2C5D; font-size: 12px; text-align: left;">{val}</td>'
-        html_table += '</tr>'
-    html_table += '</tbody></table>'
-    
-    # Wrap in container with scroll
-    full_html = f'''
-    <div style="max-height: {max_height}px; overflow-y: auto; border: 2px solid #2F75B5; border-radius: 8px; background: #E6F3FF; padding: 0;">
-        {html_table}
-    </div>
-    '''
-    
-    st.markdown(full_html, unsafe_allow_html=True)
-
-# ============================================================================
-# CUSTOM OPTION MENU FUNCTION (REPLACES streamlit_option_menu)
-# ============================================================================
-
-def custom_option_menu(menu_title, options, icons=None, default_index=0, orientation="horizontal", styles=None):
-    """
-    Custom option menu function to replace streamlit-option-menu dependency
-    """
-    if icons is None:
-        icons = ["📊"] * len(options)
-    
-    if orientation == "horizontal":
-        cols = st.columns(len(options))
-        selected_idx = default_index
-        
-        for i, (col, option, icon) in enumerate(zip(cols, options, icons)):
-            with col:
-                if st.button(f"{icon}\n{option}", use_container_width=True, key=f"menu_{i}"):
-                    selected_idx = i
-                    st.session_state.selected_menu_option = option
-                    st.rerun()
-        
-        return options[selected_idx] if hasattr(st.session_state, 'selected_menu_option') else options[default_index]
-    else:
-        # Vertical menu
-        selected = st.selectbox(menu_title, options, index=default_index)
-        return selected
-
-
-st.set_page_config(page_title="SupplySyncAI – MLOps UI", layout="wide")
+st.set_page_config(page_title="SupplySyncAI – Supply Chain Intelligence", layout="wide")
 
 st.markdown("""
 <style>
 
-/* App background #EDEDED*/
+/* App background */
 .stApp {
     background-color: #EDEDED;
     margin: 0;
@@ -97,469 +23,11 @@ st.markdown("""
 .block-container {
     padding-top: 0rem !important;
     margin-top: -5.5rem !important;
-    
 }
 /* keep app background */
 .main {
     background-color: #f0f2f6 !important;
 }
-
-
-/* Remove main section spacing */
-section.main > div:first-child {
-    padding-top: 0rem !important;
-    margin-top: 0rem !important;
-}
-
-/* 🔥 REMOVE TOP GAP COMPLETELY */
-[data-testid="stAppViewContainer"] {
-    padding-top: 0rem !important;
-    margin-top: 0rem !important;
-}
-
-/* 🔥 REMOVE TOP SPACER DIV */
-[data-testid="stAppViewContainer"] > div:first-child {
-    margin-top: 0rem !important;
-    padding-top: 0rem !important;
-}
-
-/* KEEP header visible */
-header[data-testid="stHeader"] {
-    position: relative;
-    background-color: #EDEDED !important;
-}
-
-header[data-testid="stHeader"] * {
-    color: #000000 !important;
-}
-
-
-
-</style>
-""", unsafe_allow_html=True)
-
-st.markdown("""
-<style>
-
-/* Block container — single source of truth */
-.block-container {
-    padding-left: 2rem !important;
-    padding-right: 2rem !important;
-    max-width: 100% !important;
-    overflow-x: hidden !important;
-}
-
-section.main > div {
-    padding-left: 0rem !important;
-    padding-right: 0rem !important;
-    max-width: 100% !important;
-    overflow-x: hidden !important;
-}
-
-[data-testid="stAppViewContainer"] {
-    padding-left: 0rem !important;
-    padding-right: 0rem !important;
-    overflow-x: hidden !important;
-}
-            
-</style>
-""", unsafe_allow_html=True)
-
-st.markdown("""
-<style>
-
-/* =========================================
-   RADIO CONTAINER – FULL WIDTH
-   ========================================= */
-div.element-container:has(div.stRadio) {
-    width: 100% !important;
-}
-
-/* =========================================
-   Teal WRAP BOX – FULL PAGE WIDTH
-   ========================================= */
-div.stRadio > div {
-    background-color:  #00D05E;
-    padding: 16px 0px;
-    border-radius: 8px;
-    width: 100%;
-    box-sizing: border-box;
-    display: flex;
-    justify-content: center;
-}
-
-/* =========================================
-   RADIO GROUP ALIGNMENT
-   ========================================= */
-div[data-baseweb="radio-group"] {
-    display: flex !important;
-    justify-content: center !important;
-    align-items: center;
-    gap: 50px;
-    width: 100%;
-    margin: 0 auto;
-}
-            
-div[data-baseweb="radio"] {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-/* =========================================
-   RADIO OPTION TEXT
-   ========================================= */
-/* RADIO LABEL TEXT – FORCE WHITE */
-div[data-baseweb="radio"] label,
-div[data-baseweb="radio"] label span {
-    font-size: 18px !important;
-    font-weight: 800 !important;
-    color: #FFFFFF !important;
-    white-space: nowrap;
-}
-
-
-/* =========================================
-   SPACE BETWEEN OPTIONS
-   ========================================= */
-div[data-baseweb="radio"] {
-    margin-right: 28px;
-}
-
-          
-
-</style>
-""", unsafe_allow_html=True)
-
-st.markdown(""" 
- <style> /* Expander outer card */ 
-    div[data-testid="stExpander"]
-        { background-color: #2F75B5;
-        border-radius: 20px; 
-        border: 1px solid #9EDAD0; 
-        overflow: hidden; /* 🔑 fixes unfinished edges */ }
-    /* Hide expander header completely */
-    div[data-testid="stExpander"]:nth-of-type(1)
-             summary { display: none; }
-    /* Inner content padding fix */
-     div[data-testid="stExpander"]:nth-of-type(1) > 
-            div { padding: 22px 18px; } 
-            </style> """, unsafe_allow_html=True)
-
-
-
-
-
-
-
-st.markdown(
-    """
-    <style>
-        /* Dark blue themed button */
-        div.stButton > button {
-            background-color: #0B2C5D;   /* Dark blue from your header */
-            color: #FFFFFF;
-            border-radius: 8px;
-            padding: 8px 18px;
-            border: none;
-            font-weight: 600;
-        }
-
-        div.stButton > button:hover {
-            background-color: #08306B;   /* Slightly darker on hover */
-            color: #FFFFFF;
-        }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
-st.markdown("""
-<style>
-
-/* =========================================
-   SUMMARY GRID (CENTERED, SMALL, EQUAL BOXES)
-   ========================================= */
-.summary-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 14px;
-    margin: 6px 0 10px 0;
-    justify-content: center;
-    
-}
-
-/* =========================================
-   SUMMARY CARD (TABLE CONTAINER)
-   ========================================= */
-.summary-card {
-    border: 2px solid #6B7280;
-    border-radius: 2px;
-    background-color: #F8FAFC;
-    overflow: hidden;
-    text-align: center;
-}
-
-/* =========================================
-   HEADER ROW (NO WRAP, SAME HEIGHT)
-   ========================================= */
-.summary-title {
-    background-color:#1F3A5F;
-    color: #ffffff;
-    font-size: 14px;
-    font-weight: 700;
-    padding: 8px 6px;
-    border-bottom: 1px solid #6B7280;
-
-    white-space: nowrap;       /* 🔥 stop wrapping */
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-/* =========================================
-   VALUE CELL (COMPACT)
-   ========================================= */
-.summary-value {
-    font-size: 22px;
-    font-weight: 600;
-    color: #000000;
-    padding: 1px 0;
-}
-
-</style>
-""", unsafe_allow_html=True)
-
-
-st.markdown("""
-<style>
-/* Outer gray wrap */
-.gray-analytics-wrap {
-    background-color: #E6E6E6;
-    padding: 16px 400px;
-    border-radius: 8px;
-    width: 100%;              
-    box-sizing: border-box;
-}
-
-/* Inner blue analytics bar */
-.analytics-container {
-    background-color:#1F6FB2;
-    padding:18px;
-    border-radius:14px;
-}
-</style>
-""", unsafe_allow_html=True)
-
-
-
-st.markdown(
-    """
-    <div style="
-        background-color:#0B2C5D;
-        padding:35px;
-        border-radius:12px;
-        color:white;
-        text-align:center;
-        margin:0 0 20px 0;
-    ">
-        <h1 style="margin:0 0 8px 0;">
-            AI-Powered Demand Forecasting & Sales Prediction Engine
-        </h1>
-        <h3 style="font-weight:400; margin:0;">
-            From Broad Estimates to SKU-Level Intelligence
-        </h3>
-        <p style="font-size:17px; margin-top:15px;">
-            Predict demand accurately across products, stores, channels,
-            promotions, events, and time.
-        </p>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
-st.markdown(
-    """
-    <div style="
-        background-color:#2F75B5;
-        padding:28px;
-        border-radius:12px;
-        color:white;
-        font-size:16px;
-        line-height:1.6;
-        margin-bottom:25px;
-    ">
-
-    <p>
-    This application enables <b>granular demand forecasting and sales prediction</b>
-    by combining transactional data, customer behavior, promotions, events,
-    weather, inventory, and trends into a unified AI-driven analytics pipeline.
-    </p>
-
-    <p>
-    Unlike traditional forecasting systems that operate at a
-    <b>store or category level</b>, this platform provides
-    <b>fine-grained forecasts at the SKU × Store × Time level</b>,
-    empowering data-driven decisions across planning, inventory, and operations.
-    </p>
-
-    <h4 style="margin-top:22px;">Why This Matters</h4>
-    
-    <p>
-    Rurtail demand is influenced by far more than historical sales. 
-    This engine cuptures<b> real-world drivers of demand</b>, including:
-    </p>
-
-    <ul>
-        <li>Customer engagement and loyalty behavior</li>
-        <li>Promotion effectiveness and campaign impact</li>
-        <li>Event-driven demand spikes</li>
-        <li>Weather and trend influences</li>
-        <li>Inventory availability and stock health</li>
-    </ul>
-
-    <p style="margin-top:15px;">
-        <b>The result:</b> More accurate forecasts, reduced stockouts,
-        lower excess inventory, and improved profitability.
-    </p>
-
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
-# ============================================================================
-# HTML TABLE RENDERING FUNCTION
-# ============================================================================
-
-def render_html_table(df, title=None, max_height=300):
-    """
-    Render a beautiful, professional HTML table with white headers and horizontal rows.
-    
-    Args:
-        df: DataFrame to display
-        title: Optional title for the table
-        max_height: Maximum height in pixels
-    """
-    if df.empty:
-        st.info("No data to display")
-        return ""
-    
-    # Build HTML table manually for better control
-    html_table = '<table style="width: 100%; border-collapse: collapse; font-family: Arial, sans-serif; border: 2px solid #2F75B5; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 12px rgba(47, 117, 181, 0.15);">'
-    
-    # Header row with blue background and WHITE text
-    html_table += '<thead><tr style="background: linear-gradient(135deg, #2F75B5, #1F5F99); color: white; font-weight: bold; text-align: left;">'
-    for col in df.columns:
-        html_table += f'<th style="padding: 12px 15px; font-size: 13px; font-weight: bold; border-bottom: 2px solid #1a4d80; color: white; white-space: nowrap;">{col}</th>'
-    html_table += '</tr></thead>'
-    
-    # Data rows with alternating colors - displayed horizontally
-    html_table += '<tbody>'
-    for i, (_, row) in enumerate(df.iterrows()):
-        bg_color = '#E6F3FF' if i % 2 == 0 else '#F0F8FF'  # Blue theme colors
-        html_table += f'<tr style="background-color: {bg_color}; transition: all 0.3s ease;" onmouseover="this.style.backgroundColor=\'#B8D4FF\'" onmouseout="this.style.backgroundColor=\'{bg_color}\'">'
-        for val in row:
-            html_table += f'<td style="padding: 10px 15px; border-bottom: 1px solid #B8D4FF; color: #0B2C5D; font-size: 12px; text-align: left;">{val}</td>'
-        html_table += '</tr>'
-    html_table += '</tbody></table>'
-    
-    # Wrap in container with scroll
-    full_html = f'''
-    <div style="max-height: {max_height}px; overflow-y: auto; border: 2px solid #2F75B5; border-radius: 8px; background: #E6F3FF; padding: 0;">
-        {html_table}
-    </div>
-    
-    <style>
-        /* Custom scrollbar */
-        div::-webkit-scrollbar {{
-            width: 10px;
-        }}
-        div::-webkit-scrollbar-track {{
-            background: #f1f1f1;
-            border-radius: 5px;
-        }}
-        div::-webkit-scrollbar-thumb {{
-            background: #2F75B5;
-            border-radius: 5px;
-        }}
-        div::-webkit-scrollbar-thumb:hover {{
-            background: #1F5F99;
-        }}
-    </style>
-    '''
-    
-    if title:
-        full_html = f"### {title}" + full_html
-    
-    return full_html
-
-# ============================================================================
-# SAFE COLUMN MAPPING FUNCTION
-# ============================================================================
-
-def map_col(candidates):
-    """Return the first column that exists in the dataframe from a list of candidates"""
-    for c in candidates:
-        if c in df.columns:
-            return c
-    return None
-
-# ============================================================================
-# SAFE COLUMN DEFINITIONS
-# ============================================================================
-
-def get_safe_columns():
-    """Get column names safely, checking if they exist in the dataframe"""
-    columns = {}
-    
-    # Product column mapping
-    columns['product'] = map_col(['product_id', 'Product_ID', 'product', 'Product'])
-    
-    # Quantity column mapping  
-    columns['quantity'] = map_col(['quantity_sold', 'Quantity', 'quantity', 'qty_sold', 'Qty'])
-    
-    # Revenue column mapping
-    columns['revenue'] = map_col(['total_sales_amount', 'Sales_Amount', 'revenue', 'Revenue', 'sales'])
-    
-    # Profit column mapping
-    columns['profit'] = map_col(['profit_value', 'Profit', 'profit', 'margin', 'Profit_Margin'])
-    
-    # Store column mapping
-    columns['store'] = map_col(['store_id', 'Store_ID', 'store', 'Store'])
-    
-    # Customer column mapping
-    columns['customer'] = map_col(['customer_id', 'Customer_ID', 'customer', 'Customer'])
-    
-    # Channel column mapping
-    columns['channel'] = map_col(['channel_id', 'Channel_ID', 'channel', 'Channel'])
-    
-    return columns
-
-
-
-st.set_page_config(page_title="SupplySyncAI – MLOps UI", layout="wide")
-
-st.markdown("""
-<style>
-
-/* App background #EDEDED*/
-.stApp {
-    background-color: #EDEDED;
-    margin: 0;
-    padding: 0;
-}
-
-/* Remove block spacing */
-.block-container {
-    padding-top: 0rem !important;
-    margin-top: -5.5rem !important;
-    
-}
-/* keep app background */
-.main {
-    background-color: #f0f2f6 !important;
-}
-
 
 /* Remove main section spacing */
 section.main > div:first-child {
@@ -624,16 +92,12 @@ section.main > div {
 st.markdown("""
 <style>
 
-/* =========================================
-   RADIO CONTAINER – FULL WIDTH
-   ========================================= */
+/* RADIO CONTAINER – FULL WIDTH */
 div.element-container:has(div.stRadio) {
     width: 100% !important;
 }
 
-/* =========================================
-   Teal WRAP BOX – FULL PAGE WIDTH
-   ========================================= */
+/* GREEN WRAP BOX – FULL PAGE WIDTH */
 div.stRadio > div {
     background-color:  #00D05E;
     padding: 16px 0px;
@@ -644,9 +108,7 @@ div.stRadio > div {
     justify-content: center;
 }
 
-/* =========================================
-   RADIO GROUP ALIGNMENT
-   ========================================= */
+/* RADIO GROUP ALIGNMENT */
 div[data-baseweb="radio-group"] {
     display: flex !important;
     justify-content: center !important;
@@ -662,10 +124,7 @@ div[data-baseweb="radio"] {
     justify-content: center;
 }
 
-/* =========================================
-   RADIO OPTION TEXT
-   ========================================= */
-/* RADIO LABEL TEXT – FORCE WHITE */
+/* RADIO OPTION TEXT */
 div[data-baseweb="radio"] label,
 div[data-baseweb="radio"] label span {
     font-size: 18px !important;
@@ -674,15 +133,10 @@ div[data-baseweb="radio"] label span {
     white-space: nowrap;
 }
 
-
-/* =========================================
-   SPACE BETWEEN OPTIONS
-   ========================================= */
+/* SPACE BETWEEN OPTIONS */
 div[data-baseweb="radio"] {
     margin-right: 28px;
 }
-
-          
 
 </style>
 """, unsafe_allow_html=True)
@@ -693,7 +147,7 @@ st.markdown("""
         { background-color: #2F75B5;
         border-radius: 20px; 
         border: 1px solid #9EDAD0; 
-        overflow: hidden; /* fixes unfinished edges */ }
+        overflow: hidden; }
     /* Hide expander header completely */
     div[data-testid="stExpander"]:nth-of-type(1)
              summary { display: none; }
@@ -702,87 +156,13 @@ st.markdown("""
             div { padding: 22px 18px; } 
             </style> """, unsafe_allow_html=True)
 
-st.markdown("""
-<style>
-
-/* =========================================
-   SUMMARY GRID (CENTERED, SMALL, EQUAL BOXES)
-   ========================================= */
-.summary-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 14px;
-    margin: 6px 0 10px 0;
-    justify-content: center;
-    
-}
-
-/* =========================================
-   SUMMARY CARD (TABLE CONTAINER)
-   ========================================= */
-.summary-card {
-    border: 2px solid #6B7280;
-    border-radius: 2px;
-    background-color: #F8FAFC;
-    overflow: hidden;
-    text-align: center;
-}
-
-/* =========================================
-   HEADER ROW (NO WRAP, SAME HEIGHT)
-   ========================================= */
-.summary-title {
-    background-color:#1F3A5F;
-    color: #ffffff;
-    font-size: 14px;
-    font-weight: 700;
-    padding: 8px 6px;
-    border-bottom: 1px solid #6B7280;
-
-    white-space: nowrap;       /* stop wrapping */
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-/* =========================================
-   VALUE CELL (COMPACT)
-   ========================================= */
-.summary-value {
-    font-size: 22px;
-    font-weight: 600;
-    color: #000000;
-    padding: 1px 0;
-}
-
-</style>
-""", unsafe_allow_html=True)
-
-st.markdown("""
-<style>
-/* Outer gray wrap */
-.gray-analytics-wrap {
-    background-color: #E6E6E6;
-    padding: 16px 400px;
-    border-radius: 8px;
-    width: 100%;              
-    box-sizing: border-box;
-}
-
-/* Inner blue analytics bar */
-.analytics-container {
-    background-color:#1F6FB2;
-    padding:18px;
-    border-radius:14px;
-}
-</style>
-""", unsafe_allow_html=True)
 
 st.markdown(
     """
     <style>
         /* Dark blue themed button */
         div.stButton > button {
-            background-color: #0B2C5D;   /* Dark blue from your header */
+            background-color: #0B2C5D;
             color: #FFFFFF;
             border-radius: 8px;
             padding: 8px 18px;
@@ -791,7 +171,7 @@ st.markdown(
         }
 
         div.stButton > button:hover {
-            background-color: #08306B;   /* Slightly darker on hover */
+            background-color: #08306B;
             color: #FFFFFF;
         }
     </style>
@@ -802,48 +182,38 @@ st.markdown(
 st.markdown("""
 <style>
 
-/* =========================================
-   SUMMARY GRID (CENTERED, SMALL, EQUAL BOXES)
-   ========================================= */
+/* SUMMARY GRID */
 .summary-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 14px;
     margin: 6px 0 10px 0;
     justify-content: center;
-    
 }
 
-/* =========================================
-   SUMMARY CARD (TABLE CONTAINER)
-   ========================================= */
+/* SUMMARY CARD */
 .summary-card {
     border: 2px solid #6B7280;
     border-radius: 2px;
-    background-color: #E5E7EB;
+    background-color: #F8FAFC;
     overflow: hidden;
     text-align: center;
 }
 
-/* =========================================
-   HEADER ROW (NO WRAP, SAME HEIGHT)
-   ========================================= */
+/* HEADER ROW */
 .summary-title {
-    background-color: #9CA3AF;
-    color: #000000;
+    background-color:#1F3A5F;
+    color: #ffffff;
     font-size: 14px;
     font-weight: 700;
     padding: 8px 6px;
     border-bottom: 1px solid #6B7280;
-
-    white-space: nowrap;       /* 🔥 stop wrapping */
+    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
-/* =========================================
-   VALUE CELL (COMPACT)
-   ========================================= */
+/* VALUE CELL */
 .summary-value {
     font-size: 22px;
     font-weight: 600;
@@ -862,7 +232,7 @@ st.markdown("""
     background-color: #E6E6E6;
     padding: 16px 400px;
     border-radius: 8px;
-    width: 100%;              
+    width: 100%;
     box-sizing: border-box;
 }
 
@@ -875,969 +245,10 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Fix chart text visibility
-st.markdown("""
-<style>
-/* Streamlit chart text visibility fix */
-.streamlit-charts text,
-.streamlit-charts .tick text,
-.streamlit-charts .axis text,
-.streamlit-charts .label,
-.streamlit-charts .legend text {
-    fill: #000000 !important;
-    color: #000000 !important;
-    font-weight: 600 !important;
-}
 
-/* Fix bar chart specifically */
-.stBarChart text,
-.stBarChart .tick text,
-.stBarChart .axis text,
-.stBarChart .label {
-    fill: #000000 !important;
-    color: #000000 !important;
-    font-weight: 600 !important;
-}
-
-/* General chart styling */
-element-container text,
-element-container .tick text,
-element-container .axis text {
-    fill: #000000 !important;
-    color: #000000 !important;
-}
-</style>
-""", unsafe_allow_html=True)
-
-
-
-st.markdown(
-    """
-    <div style="
-        background-color:#0B2C5D;
-        padding:35px;
-        border-radius:12px;
-        color:white;
-        text-align:center;
-        margin:0 0 20px 0;
-    ">
-        <h1 style="margin:0 0 8px 0;">
-            AI-Powered Demand Forecasting & Sales Prediction Engine
-        </h1>
-        <h3 style="font-weight:400; margin:0;">
-            From Broad Estimates to SKU-Level Intelligence
-        </h3>
-        <p style="font-size:17px; margin-top:15px;">
-            Predict demand accurately across products, stores, channels,
-            promotions, events, and time.
-        </p>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
-# Main Navigation Menu - EXACTLY like the reference image
-st.markdown("""
-<style>
-.main-nav {
-    background-color: #00D05E;
-    padding: 0;
-    border-radius: 8px;
-    margin-bottom: 20px;
-    overflow: hidden;
-}
-
-.main-nav .stRadio > div {
-    background-color: #00D05E;
-    padding: 16px 0;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-
-.main-nav div[data-baseweb="radio-group"] {
-    display: flex !important;
-    justify-content: center !important;
-    align-items: center !important;
-    gap: 0 !important;
-    width: 100%;
-}
-
-.main-nav div[data-baseweb="radio"] {
-    margin: 0 !important;
-    padding: 0 20px !important;
-    border-right: 2px solid rgba(255,255,255,0.3);
-}
-
-.main-nav div[data-baseweb="radio"]:last-child {
-    border-right: none !important;
-}
-
-.main-nav div[data-baseweb="radio"] label {
-    color: #FFFFFF !important;
-    font-size: 16px !important;
-    font-weight: 600 !important;
-    white-space: nowrap !important;
-}
-
-.main-nav div[data-baseweb="radio"]:has(input:checked) label {
-    background-color: rgba(255,255,255,0.2) !important;
-    border-radius: 4px !important;
-    padding: 8px 12px !important;
-}
-</style>
-""", unsafe_allow_html=True)
-
-# Main navigation options
-main_pages = ["Data Collection & Integration", "Data Pre-Processing", "Exploratory Data Analysis", "Feature Engineering", "ML Implementation"]
-
-if "main_page" not in st.session_state:
-    st.session_state.main_page = "Exploratory Data Analysis"
-
-# Create the main navigation
-st.markdown('<div class="main-nav">', unsafe_allow_html=True)
-selected_main = st.radio(
-    "",
-    main_pages,
-    index=main_pages.index(st.session_state.main_page),
-    key="main_navigation",
-    horizontal=True
-)
-st.session_state.main_page = selected_main
-st.markdown('</div>', unsafe_allow_html=True)
-
-st.markdown(
-    """
-    <div style="
-        background-color:#2F75B5;
-        padding:28px;
-        border-radius:12px;
-        color:white;
-        font-size:16px;
-        line-height:1.6;
-        margin-bottom:25px;
-    ">
-
-    <p>
-    <b>Smart Inventory Redistribution</b> is an AI-powered decision engine designed to continuously rebalance inventory across stores, warehouses, and regions based on real-time demand signals.
-    </p>
-
-    <p>
-    Traditional inventory systems treat each store in isolation, leading to overstock in low-demand locations and stockouts in high-demand ones. This application breaks that silo by analyzing:
-    </p>
-
-    <ul>
-        <li>Demand forecasts and patterns</li>
-        <li>Inventory health metrics and levels</li>
-        <li>Store and cluster-level demand behavior</li>
-        <li>Logistics and route feasibility</li>
-        <li>Optimization models for transfer decisions</li>
-    </ul>
-
-    <h4 style="margin-top:22px;">Why This Matters</h4>
-    
-    <div style="background:#2F75B5; padding:15px; border-radius:8px; margin:15px 0;">
-        <h5 style="margin:0; color:white;">The Retail Problem</h5>
-        <ul style="color:white; margin:10px 0 0 20px;">
-            <li>Inventory is capital locked on shelves</li>
-            <li>Overstock → markdowns & wastage</li>
-            <li>Stockouts → lost revenue & poor CX</li>
-            <li>Manual transfers → slow, reactive, expensive</li>
-        </ul>
-    </div>
-    <div style="background:#2F75B5; padding:15px; border-radius:8px;">
-        <h5 style="margin:0; color:white;">The AI Advantage</h5>
-        <p style="color:white; margin:10px 0;">Transforms reactive replenishment into proactive rebalancing:</p>
-        <ul style="color:white; margin:0 0 0 20px;">
-            <li>Identify excess stock early</li>
-            <li>Detect demand hotspots</li>
-            <li>Optimize transfers with AI</li>
-            <li>Reduce procurement & logistics cost</li>
-            <li>Improve fill rates & customer satisfaction</li>
-        </ul>
-    </div>
-
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
-
-# MYSQL LOADER FUNCTION
-@st.cache_data
-def load_data():
-    """Load data with cache clearing for fresh data"""
-    return pd.read_csv("FACT_SUPPLY_CHAIN_FINAL.csv")
-
-
-# CENTERED SMALL PLOT FUNCTION
-def show_small_plot(fig):
-    buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=120, bbox_inches="tight")
-    buf.seek(0)
-
-    st.markdown("<div style='text-align:center;'>", unsafe_allow_html=True)
-    st.image(buf, width=480)  # Half screen
-    st.markdown("</div>", unsafe_allow_html=True)
-
-
-
-
-# STEP 1 – LOAD DATA (USING YOUR EXISTING MYSQL FUNCTION)
-st.markdown(
-    """
-    <div style="
-        background-color:#0B2C5D;
-        padding:18px 25px;
-        border-radius:10px;
-        color:white;
-        margin-top:20px;
-        margin-bottom:10px;
-    ">
-        <h3 style="margin:0;">
-            Data Collection & Integration
-        </h3>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
-st.markdown(
-    """
-    <div style="
-        background-color:#2F75B5;
-        padding:28px;
-        border-radius:12px;
-        color:white;
-        font-size:16px;
-        line-height:1.6;
-        margin-bottom:20px;
-    ">
-
-    <p>
-    This section consolidates data from multiple enterprise sources into a single analytical model optimized for inventory redistribution decisions.
-    </p>
-
-    <b>Integrated Data Domains:</b>
-    <ul>
-        <li>Customer demand patterns & behavior</li>
-        <li>Product master & pricing data</li>
-        <li>Store & sales channel performance</li>
-        <li>Promotions & events impact</li>
-        <li>Inventory levels & stock health</li>
-        <li>Weather & market trends</li>
-        <li>Logistics & transfer feasibility</li>
-    </ul>
-
-    <p>
-    All data is validated and aligned using a <b>consistent dimensional model</b>
-    to ensure stock rebalancing accuracy and optimization.
-    </p>
-
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
-
-
-# Make sure session key exists
-if "df" not in st.session_state:
-    st.session_state.df = None
-
-# Load Button
-if st.button("Load Data"):
-    st.session_state.df = load_data()
-    st.success("Data loaded successfully!")
-
-# Show preview if loaded
-df = st.session_state.df
-
-if df is not None:
-    st.markdown(
-        "<h3 style='color:#000000;'>Data Preview</h3>",
-        unsafe_allow_html=True
-    )
-
-    st.markdown(
-        render_html_table(
-            df.head(20),
-            max_height=260
-        ),
-        unsafe_allow_html=True
-    )
-else:
-    st.info("Click the button above to load the dataset.")
-
-# ============================================================
-# STEP 2 – DATA PRE-PROCESSING (USER-CONTROLLED PIPELINE) - ONLY SHOW AFTER DATA LOADED
-# ============================================================
-if st.session_state.df is not None:
-    if "preprocess_history" not in st.session_state:
-        st.session_state.preprocess_history = {
-            "duplicates": None,
-            "outliers": {},
-            "null_replaced_cols": None,
-            "null_replaced_rows": None,
-            "numeric_converted": None
-        }
-
-    if "preprocessing_completed" not in st.session_state:
-        st.session_state.preprocessing_completed = False
-
-    st.markdown("""
-    <div style="
-        background-color:#0B2C5D;
-        padding:18px 25px;
-        border-radius:10px;
-        color:white;
-        margin-top:25px;
-        margin-bottom:12px;
-    ">
-        <h3 style="margin:0;">
-            Data Pre-Processing
-        </h3>
-    </div>
-    """, unsafe_allow_html=True)
-
-st.markdown("""
-<div style="
-    background-color:#2F75B5;
-    padding:24px;
-    border-radius:12px;
-    color:white;
-    font-size:16px;
-    line-height:1.7;
-    margin-bottom:20px;
-">
-This section ensures the dataset is <b>model-ready</b> by handling:
-<ul>
-    <li>Missing values & inconsistencies</li>
-    <li>Outliers & anomalies</li>
-    <li>Data type validation</li>
-    <li>Referential integrity checks across dimensions</li>
-    <li>Time alignment and granularity normalization</li>
-</ul>
-
-This step guarantees that downstream models are trained on
-<b>clean, reliable, and trustworthy data.</b>
-</div>
-""", unsafe_allow_html=True)
-
-# Safety check
-if st.session_state.df is None:
-    st.warning("Load data first.")
-    st.stop()
-
-df = st.session_state.df
-
-# ------------------------------------------------------------
-# STEP SELECTOR (CUSTOM HORIZONTAL BUTTONS)
-# ------------------------------------------------------------
-st.markdown(
-    "<div style='font-size:20px; font-weight:600; margin-bottom:8px;'>"
-    "Select a Data Pre-Processing Step"
-    "</div>",
-    unsafe_allow_html=True
-)
-st.write("")
-
-# Custom horizontal button selection
-if "selected_step" not in st.session_state:
-    st.session_state.selected_step = None
-
-def step_button(label, step_key):
-    """Custom horizontal button with active state"""
-    if st.session_state.selected_step == step_key:
-        st.markdown(
-            f"""
-            <div style="
-                background-color:#4F97EE;
-                color:white;
-                padding:14px;
-                border-radius:10px;
-                font-weight:600;
-                text-align:center;
-                margin-bottom:12px;
-                border:2px solid #2F75B5;
-            ">
-                {label}
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-    else:
-        if st.button(label, use_container_width=True):
-            st.session_state.selected_step = step_key
-            st.rerun()
-
-# Create horizontal layout with columns
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    step_button("Remove Duplicate Rows", "Remove Duplicate Rows")
-    
-with col2:
-    step_button("Remove Outliers", "Remove Outliers")
-    
-with col3:
-    step_button("Replace Missing Values", "Replace Missing Values")
-
-step = st.session_state.selected_step
-
-
-# ============================================================
-# 1️⃣ REMOVE DUPLICATE ROWS
-# ============================================================
-
-if step == "Remove Duplicate Rows":
-
-    st.markdown("### Remove Duplicate Rows")
-    st.write("")
-
-    st.markdown("""
-<div style="
-    background-color:#2F75B5;
-    padding:28px;
-    border-radius:12px;
-    color:white;
-    font-size:16px;
-        line-height:1.6;
-        margin-bottom:20px;
-">
-<b>What this does:</b>
-This step identifies and removes <b>exact duplicate records</b> from the dataset.<br>
-
-<b>Duplicate rows often occur due to:</b>
-<ul>
-    <li>Multiple data ingestion runs</li>
-    <li>System retries or sync issues</li>
-    <li>Manual data merges</li>
-</ul><br>
-
-<b>Why this is important:</b>
-<ul>
-    <li>Prevents <b>double counting of sales, customers, or inventory</b></li>
-    <li>Ensures <b>accurate aggregates and trends</b></li>
-    <li>Avoids biased model training caused by repeated observations</li>
-</ul><br>
-
-<b>How it helps forecasting:</b><br>
-Demand models rely on <b>true historical patterns</b>.<br>
-Duplicates distort demand signals and inflate sales volumes,
-leading to <b>over-forecasting</b>.
-</div>
-""", unsafe_allow_html=True)
-
-    # --------------------------------------------------
-    # DUPLICATE REMOVAL – FIXED BEFORE / AFTER LOGIC
-    # --------------------------------------------------
-
-    # Init session keys (SAFE)
-    if "dup_before_df" not in st.session_state:
-        st.session_state.dup_before_df = None
-    if "dup_after_df" not in st.session_state:
-        st.session_state.dup_after_df = None
-    if "dup_removed_df" not in st.session_state:
-        st.session_state.dup_removed_df = None
-
-
-    if st.button("Apply Duplicate Row Removal"):
-        st.write("")
-        st.write("")
-        # Prevent re-run
-        if st.session_state.dup_removed_df is not None:
-            st.info("Duplicate rows were already removed earlier.")
-
-        else:
-            # 🔒 SNAPSHOT BEFORE (CRITICAL)
-            before_df = st.session_state.df.copy()
-
-            # Detect duplicates from BEFORE snapshot
-            dup_mask = before_df.duplicated()
-            dup_rows = before_df[dup_mask]
-
-            if dup_rows.empty:
-                st.info("No duplicate rows found.")
-            else:
-                # Cleaned version
-                after_df = before_df.drop_duplicates().reset_index(drop=True)
-
-
-                # ✅ STORE ALL THREE STATES (IMMUTABLE)
-                st.session_state.dup_before_df = before_df
-                st.session_state.dup_removed_df = dup_rows
-                st.session_state.dup_after_df = after_df
-
-                # ✅ UPDATE WORKING DF ONLY ONCE
-                st.session_state.df = after_df
-                st.session_state.preprocessing_completed = True
-
-                st.success("✔ Duplicate rows removed")
-
-
-    # --------------------------------------------------
-    # OUTPUT SECTION – ALWAYS USE SNAPSHOTS
-    # --------------------------------------------------
-
-    if st.session_state.dup_removed_df is not None:
-
-        before_df = st.session_state.dup_before_df   # 🔒 frozen
-        after_df = st.session_state.dup_after_df     # 🔒 frozen
-        removed_df = st.session_state.dup_removed_df     
-        st.markdown("####  Duplicate Removal Summary")
-        st.write("")
-        st.markdown("""
-        <div class="summary-grid">
-            <div class="summary-card">
-                <div class="summary-title">Rows Before</div>
-                <div class="summary-value">{}</div>
-            </div>
-            <div class="summary-card">
-                <div class="summary-title">Rows After</div>
-                <div class="summary-value">{}</div>
-            </div>
-            <div class="summary-card">
-                <div class="summary-title">Duplicates Removed</div>
-                <div class="summary-value">{}</div>
-            </div>
-        </div>
-        """.format(
-            before_df.shape[0],
-            after_df.shape[0],
-            removed_df.shape[0]
-        ), unsafe_allow_html=True)
-
-        st.markdown("<br>", unsafe_allow_html=True)
-        # ===== BEFORE =====
-        st.markdown(
-            f"#### Before Duplicate Removal ({before_df.shape[0]} Rows)"
-        )
-        st.write("")
-        render_html_table(
-            before_df,
-            title=None,
-            max_height=300
-        )
-
-        st.markdown("<br>", unsafe_allow_html=True)
-
-        # ===== AFTER =====
-        st.markdown(
-            f"####  After Duplicate Removal ({after_df.shape[0]} Rows)"
-        )
-        st.write("")
-        render_html_table(
-            after_df,
-            title=None,
-            max_height=300
-        )
-
-        st.markdown("<br>", unsafe_allow_html=True)
-
-        # ===== REMOVED =====
-        st.markdown(
-            f"#### Duplicates Removed ({removed_df.shape[0]} Rows)"
-        )
-        st.write("")
-        render_html_table(
-            removed_df,
-            title=None,
-            max_height=300  # smaller is fine here
-        )
-
-
-
-    # ============================================================
-    # OUTLIER DETECTION (IQR-BASED – FLAG ONLY)
-    # ============================================================
-if step == "Remove Outliers":
-
-    st.markdown("### Remove Outliers")
-    st.write("")
-
-    st.markdown("""
-    <div style="
-        background-color:#2F75B5;
-        padding:24px;
-        border-radius:12px;
-        color:white;
-        font-size:16px;
-        line-height:1.7;
-        margin-bottom:20px;
-    ">
-    <b>What this does:</b><br>
-    This step identifies and handles <b>statistical outliers</b> in numeric fields using a
-    <b>robust IQR-based method</b>.
-
-    Outlier handling is performed <b>internally</b> and follows a <b>two-level strategy</b>:
-    <ul>
-        <li><b>Mild anomalies</b> are <b>capped</b> to safe bounds (no row deletion)</li>
-        <li><b>Extreme anomalies</b> in <b>critical columns</b> are <b>removed</b></li>
-    </ul>
-
-    <br>
-
-    <b>Why this is important:</b>
-    <ul>
-        <li>Prevents extreme values from <b>skewing averages and distributions</b></li>
-        <li>Reduces noise without discarding valuable data</li>
-        <li>Ensures numeric stability for downstream models</li>
-        <li>Avoids over-cleaning by deleting only <b>truly abnormal records</b></li>
-    </ul>
-    <br>
-
-    <b>How it helps forecasting:</b>
-    <li>
-    Demand forecasting models are highly sensitive to extreme numeric values.
-    By controlling these extremes, the model learns from realistic historical behavior
-    rather than rare or erroneous spikes.
-    </li>
-
-    <li>
-    This improves forecasting by preserving <b>true demand signals</b>, reducing noise,
-    preventing overreaction to anomalies, and ensuring forecasts remain
-    <b>stable, generalizable, and business-relevant</b> across time, products, and stores.
-    </li>
-
-
-    </div>
-    """, unsafe_allow_html=True)
-
-    
-
-    df = st.session_state.df
-
-    # --------------------------------------------------
-    # NUMERIC COLUMN DETECTION
-    # --------------------------------------------------
-    numeric_cols = df.select_dtypes(include=np.number).columns.tolist()
-
-    if not numeric_cols:
-        st.info("No numeric columns available for outlier detection.")
-        st.stop()
-
-    # --------------------------------------------------
-    # BASE COLUMNS (MOST TRUSTWORTHY FOR DELETION) - USE SAFE COLUMN MAPPING
-    # --------------------------------------------------
-    safe_cols = get_safe_columns()
-    DELETE_COLS = [safe_cols['quantity'], safe_cols['revenue']]  # Use mapped columns
-
-    # --------------------------------------------------
-    # INIT SESSION KEYS
-    # --------------------------------------------------
-    if "out_before_df" not in st.session_state:
-        st.session_state.out_before_df = None
-    if "out_after_df" not in st.session_state:
-        st.session_state.out_after_df = None
-    if "out_removed_df" not in st.session_state:
-        st.session_state.out_removed_df = None
-
-    # --------------------------------------------------
-    # APPLY AGGRESSIVE OUTLIER HANDLING
-    # --------------------------------------------------
-    if st.button("Apply Outlier Removal"):
-
-        if st.session_state.out_removed_df is not None:
-            st.info("Outliers were already handled earlier.")
-
-        else:
-            before_df = df.copy()
-            after_df = before_df.copy()
-
-            # Count how many columns flag each row
-            outlier_count = pd.Series(0, index=before_df.index)
-
-            for col in numeric_cols:
-                Q1 = before_df[col].quantile(0.25)
-                Q3 = before_df[col].quantile(0.75)
-                IQR = Q3 - Q1
-
-                mild_lower = Q1 - 1.5 * IQR
-                mild_upper = Q3 + 1.5 * IQR
-
-                # More aggressive extreme bounds
-                extreme_lower = Q1 - 2.0 * IQR
-                extreme_upper = Q3 + 2.0 * IQR
-
-                # Count mild outliers
-                is_mild = (
-                    (before_df[col] < mild_lower) |
-                    (before_df[col] > mild_upper)
-                )
-
-                outlier_count += is_mild.astype(int)
-
-                # Hard delete if base column is extreme and column exists
-                if col in DELETE_COLS and col is not None:
-                    outlier_count += (
-                        (before_df[col] < extreme_lower) |
-                        (before_df[col] > extreme_upper)
-                    ).astype(int) * 2  # heavier weight
-
-                # Cap all numeric columns
-                after_df[col] = after_df[col].clip(mild_lower, mild_upper)
-
-            # 🔥 DELETE RULE (LESS AGGRESSIVE - MORE LOGICAL)
-            # Remove rows flagged in 2+ signals (reduced from 4+)
-            extreme_mask = outlier_count >= 2
-            
-            # Add debugging info
-            st.write(f"**Debug Info:**")
-            st.write(f"- Numeric columns analyzed: {len(numeric_cols)}")
-            st.write(f"- Outlier threshold: 2+ signals (was 4+)")
-            st.write(f"- DELETE_COLS: {[col for col in DELETE_COLS if col is not None]}")
-            st.write(f"- Rows flagged for removal: {extreme_mask.sum()}")
-
-            removed_df = before_df[extreme_mask]
-            after_df = after_df[~extreme_mask].reset_index(drop=True)
-
-            # Save snapshots
-            st.session_state.out_before_df = before_df
-            st.session_state.out_removed_df = removed_df
-            st.session_state.out_after_df = after_df
-
-            st.session_state.df = after_df
-            st.session_state.preprocessing_completed = True
-
-            st.success("Outliers handled successfully")
-
-    # --------------------------------------------------
-    # OUTPUT SECTION (UNCHANGED)
-    # --------------------------------------------------
-    if st.session_state.out_removed_df is not None:
-
-        before_df = st.session_state.out_before_df
-        after_df = st.session_state.out_after_df
-        removed_df = st.session_state.out_removed_df
-
-        st.markdown("####  Outlier Removal Summary")
-        st.write("")
-        st.markdown("""
-        <div class="summary-grid">
-            <div class="summary-card">
-                <div class="summary-title">Rows Before</div>
-                <div class="summary-value">{}</div>
-            </div>
-            <div class="summary-card">
-                <div class="summary-title">Rows After</div>
-                <div class="summary-value">{}</div>
-            </div>
-            <div class="summary-card">
-                <div class="summary-title">Outliers Removed</div>
-                <div class="summary-value">{}</div>
-            </div>
-        </div>
-        """.format(
-            before_df.shape[0],
-            after_df.shape[0],
-            removed_df.shape[0]
-        ), unsafe_allow_html=True)
-        st.write("")
-            # ===== BEFORE =====
-        st.markdown(f"#### Before Outlier Handling ({before_df.shape[0]} Rows)")
-        st.write("")
-        render_html_table(before_df, max_height=300)
-        st.write("")
-
-        # ===== AFTER =====
-        st.markdown(f"#### After Outlier Handling ({after_df.shape[0]} Rows)")
-        st.write("")
-        render_html_table(after_df, max_height=300)
-        
-
-        st.markdown("<br>", unsafe_allow_html=True)
-
-        # ===== REMOVED =====
-        st.markdown(f"####  Outliers Removed ({removed_df.shape[0]} Rows)")
-        st.write("")
-        render_html_table(removed_df, max_height=300)
-
-
-
-
-# ============================================================
-# 3️⃣ REPLACE NULL VALUES WITH "UNKNOWN"
-# ============================================================
-
-elif step == "Replace Missing Values":
-
-    st.markdown("### Replace Missing Values")
-    st.write("")
-
-    st.markdown(
-    """
-    <div style="
-        background-color:#2F75B5;
-        padding:28px;
-        border-radius:12px;
-        color:white;
-        font-size:16px;
-        line-height:1.6;
-        margin-bottom:20px;
-    ">
-
-    <b>What this does:<br>
-
-    For non-critical categorical fields, missing values are replaced with a placeholder like:<br>
-    “<b>Unknown</b>”<br>
-
-    <b>Examples:</b>
-
-    <li> Customer Gender</li>
-    <li> Promotion Type</li>
-    <li> Event Category</li>
-    <li> Payment Type</li><br>
-
-    <b>Why this is important:<br>
-
-    <li>Preserves valuable records instead of discarding them</li>
-    <li> Keeps categorical columns consistent</li>
-    <li> Allows models to learn from “unknown” patterns rather than losing data</li><br>
-
-        
-    <b>Modelling advantage:</b>
-
-    Many ML models can handle a distinct “<b>Unknown</b>” category better than missing values.<br>
-
-    This improves:<br>
-
-    <li>Model stability</li>
-    <li>Feature completeness</li>
-    <li>Interpretability</li>
-
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
-
-    # ============================================================
-    # NULL VALUE REPLACEMENT (STATEFUL + AFFECTED ROWS ONLY)
-    # ============================================================
-
-    df = st.session_state.df
-
-    # ------------------------------------------------------------
-    # INIT SESSION KEYS
-    # ------------------------------------------------------------
-    if "null_before_rows" not in st.session_state:
-        st.session_state.null_before_rows = None
-    if "null_after_rows" not in st.session_state:
-        st.session_state.null_after_rows = None
-    if "null_replaced_cols" not in st.session_state:
-        st.session_state.null_replaced_cols = None
-
-
-    # ------------------------------------------------------------
-    # DETECT NULLS (CURRENT DF)
-    # ------------------------------------------------------------
-    null_mask = df.isnull()
-    affected_rows_before = df[null_mask.any(axis=1)]
-    null_counts = null_mask.sum()
-    null_counts = null_counts[null_counts > 0]
-
-
-    # ------------------------------------------------------------
-    # APPLY NULL REPLACEMENT
-    # ------------------------------------------------------------
-    if st.button("Apply NULL Replacement"):
-
-        if null_counts.empty:
-            st.info("NULL values were already handled earlier.")
-
-        else:
-            # 🔒 SNAPSHOT ONLY AFFECTED ROWS (BEFORE)
-            st.session_state.null_before_rows = affected_rows_before.copy()
-
-            # SAVE COLUMN IMPACT
-            st.session_state.null_replaced_cols = (
-                null_counts.to_frame("NULL Count")
-            )
-
-            # APPLY REPLACEMENT WITH DEBUGGING
-            df_before = df.copy()
-            df_updated = df.fillna("Unknown")
-            st.session_state.df = df_updated
-            st.session_state.preprocessing_completed = True
-
-            # Add debugging info
-            st.write(f"**Debug Info:**")
-            st.write(f"- Total rows before replacement: {len(df_before)}")
-            st.write(f"- Total rows after replacement: {len(df_updated)}")
-            st.write(f"- Columns with NULL values: {list(null_counts.index)}")
-            st.write(f"- NULL counts per column: {dict(null_counts)}")
-            
-            # Check for unnamed columns
-            unnamed_cols = [col for col in df.columns if 'Unnamed:' in col]
-            if unnamed_cols:
-                st.warning(f"⚠️ Found unnamed columns: {unnamed_cols}")
-                for col in unnamed_cols:
-                    null_count = df[col].isnull().sum()
-                    st.write(f"- Column '{col}': {null_count} NULL values")
-
-            # 🔒 SNAPSHOT SAME ROWS AFTER REPLACEMENT
-            st.session_state.null_after_rows = df_updated.loc[
-                affected_rows_before.index
-            ].copy()
-
-            st.success(" NULL values replaced with 'Unknown'")
-
-
-    # ------------------------------------------------------------
-    # OUTPUT SECTION – FULL DATASET COMPARISON
-    # ------------------------------------------------------------
-    if (
-        st.session_state.null_before_rows is not None and
-        st.session_state.null_after_rows is not None and
-        st.session_state.null_replaced_cols is not None
-    ):
-
-        # Get full datasets for comparison
-        df_before_full = st.session_state.null_before_rows
-        df_after_full = st.session_state.df  # This is the full updated dataset
-        
-        replaced_cols = st.session_state.null_replaced_cols
-        
-        # Show summary with full dataset counts
-        st.markdown("#### Missing Values Replacement Summary")
-        st.write("")
-        st.markdown("""
-        <div class="summary-grid">
-            <div class="summary-card">
-                <div class="summary-title">Rows Before</div>
-                <div class="summary-value">{}</div>
-            </div>
-            <div class="summary-card">
-                <div class="summary-title">Rows After</div>
-                <div class="summary-value">{}</div>
-            </div>
-            <div class="summary-card">
-                <div class="summary-title">NULL Values Replaced</div>
-                <div class="summary-value">{}</div>
-            </div>
-        </div>
-        """.format(
-            len(df_before_full),
-            len(df_after_full),
-            (df_before_full.isnull().sum().sum() - df_after_full.isnull().sum().sum())
-        ), unsafe_allow_html=True)
-        
-        st.write("")
-        
-        # Show full datasets
-        st.markdown(f"#### Full Dataset Before Replacement ({len(df_before_full)} Rows)")
-        st.write("")
-        render_html_table(df_before_full.head(20))  # Show first 20 rows
-        
-        st.markdown("<br>", unsafe_allow_html=True)
-
-        st.markdown(f"#### Full Dataset After Replacement ({len(df_after_full)} Rows)")
-        st.write("")
-        render_html_table(df_after_full.head(20))  # Show first 20 rows
-
-
-
+# ================================================================
+# QUALITY CARD & CLEAN TABLE CSS
+# ================================================================
 st.markdown("""
 <style>
 
@@ -1845,7 +256,7 @@ st.markdown("""
    GLOBAL / COMMON STYLES
    ===================================================== */
 
-/* Clean report-style table (used across EDA) */
+/* Clean report-style table */
 .clean-table {
     width: 100%;
     border-collapse: collapse;
@@ -1873,36 +284,14 @@ st.markdown("""
 
 
 /* =====================================================
-   EDA RADIO NAVIGATION (optional but safe)
+   DATA QUALITY – LAYOUT
    ===================================================== */
 
-div[data-baseweb="radio-group"] {
-    background-color: #F8F9F9;
-    padding: 12px 16px;
-    border-radius: 10px;
-    border: 1px solid #E5E7E9;
-    margin-bottom: 18px;
-}
-
-div[data-baseweb="radio"] {
-    margin-right: 14px;
-}
-
-div[data-baseweb="radio"] input:checked + div {
-    font-weight: 600;
-    color: #2F75B5;
-}
-
-
-/* =====================================================
-   DATA QUALITY – LAYOUT (FINAL, CLEAN)
-   ===================================================== */
-
-/* Horizontal row for 3 cards */
+/* Horizontal row for cards */
 .quality-row {
     display: flex;
     gap: 16px;
-    margin-bottom: 48px;   /* clear gap between rows */
+    margin-bottom: 48px;
 }
 
 /* Individual card */
@@ -1913,10 +302,10 @@ div[data-baseweb="radio"] input:checked + div {
     padding: 16px 18px;
     box-shadow: 0px 2px 8px rgba(0,0,0,0.06);
     border-left: 5px solid #2F75B5;
-    margin-bottom: 48px;   /* ~5 line gap between sections */
+    margin-bottom: 48px;
 }
 
-/* Section title with light blue band (AS PER IMAGE) */
+/* Section title */
 .quality-title {
     font-size: 15px;
     font-weight: 600;
@@ -1933,10 +322,6 @@ div[data-baseweb="radio"] input:checked + div {
     overflow-y: auto;
 }
 
-/* ===============================
-   TABLE APPEARANCE (NO RENAMES)
-   =============================== */
-
 .quality-card table {
     width: 100%;
     border-collapse: collapse;
@@ -1946,7 +331,7 @@ div[data-baseweb="radio"] input:checked + div {
 
 /* Table header */
 .quality-card th {
-    background-color: #E5ECF4;   /* slightly darker */
+    background-color: #E5ECF4;
     color: #1F2937;
     font-weight: 600;
     text-align: left;
@@ -1961,7 +346,7 @@ div[data-baseweb="radio"] input:checked + div {
     border-bottom: 1px solid #EEF2F7;
 }
 
-/* Zebra rows (LIKE IMAGE) */
+/* Zebra rows */
 .quality-card tr:nth-child(even) td {
     background-color: #FFFFFF;
 }
@@ -1974,11 +359,6 @@ div[data-baseweb="radio"] input:checked + div {
 .quality-card tr:hover td {
     background-color: #E9F1FF;
 }
-
-
-/* =====================================================
-   REPORT / CARD STYLE (used for future EDA sections)
-   ===================================================== */
 
 .report-card {
     background-color: #FFFFFF;
@@ -2011,15 +391,14 @@ div[data-baseweb="radio"] input:checked + div {
 """, unsafe_allow_html=True)
 
 
-# Global transparent theme
+# ================================================================
+# ALTAIR TRANSPARENT THEME
+# ================================================================
 def transparent_theme():
     return {
         "config": {
             "background": "transparent",
-            "view": {
-                "fill": "transparent",
-                "stroke": "transparent"
-            },
+            "view": {"fill": "transparent", "stroke": "transparent"},
             "axis": {
                 "labelColor": "rgba(255,255,255,0.8)",
                 "titleColor": "rgba(255,255,255,0.9)",
@@ -2034,22 +413,133 @@ alt.themes.register("transparent_theme", transparent_theme)
 alt.themes.enable("transparent_theme")
 
 
+# ================================================================
+# HTML TABLE RENDERER
+# ================================================================
+def render_html_table(df, title=None, max_height=300):
+    if title:
+        st.markdown(f"**{title}**")
+    html = f"""
+    <div style="overflow-x:auto; overflow-y:auto; max-height:{max_height}px;
+                border:1px solid #D1D5DB; border-radius:8px;">
+    <table style="width:100%; border-collapse:collapse; font-size:13px; background:#fff;">
+        <thead style="position:sticky; top:0; z-index:1;">
+            <tr>
+    """
+    for c in df.columns:
+        html += f'<th style="background:#1F3A5F;color:white;padding:8px 10px;text-align:left;font-weight:600;white-space:nowrap;">{c}</th>'
+    html += "</tr></thead><tbody>"
+    for _, row in df.iterrows():
+        html += "<tr style='border-bottom:1px solid #E5E7EB;'>"
+        for val in row:
+            html += f"<td style='padding:6px 10px;white-space:nowrap;'>{val}</td>"
+        html += "</tr>"
+    html += "</tbody></table></div>"
+    st.markdown(html, unsafe_allow_html=True)
 
 
+# ================================================================
+# MAIN HEADER
+# ================================================================
+st.markdown(
+    """
+    <div style="
+        background-color:#0B2C5D;
+        padding:35px;
+        border-radius:12px;
+        color:white;
+        text-align:center;
+        margin:0 0 20px 0;
+    ">
+        <h1 style="margin:0 0 8px 0;">
+            AI-Powered Supply Chain Optimization & Inventory Intelligence Engine
+        </h1>
+        <h3 style="font-weight:400; margin:0;">
+            From Warehouse to Last-Mile – End-to-End Supply Chain Analytics
+        </h3>
+        <p style="font-size:17px; margin-top:15px;">
+            Optimize inventory levels, shipment routing, supplier performance,
+            cluster-based transfers, and demand-supply balancing across
+            products, stores, regions, and time.
+        </p>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+st.markdown(
+    """
+    <div style="
+        background-color:#2F75B5;
+        padding:28px;
+        border-radius:12px;
+        color:white;
+        font-size:16px;
+        line-height:1.6;
+        margin-bottom:25px;
+    ">
+
+    <p>
+    This application enables <b>granular supply chain optimization and inventory intelligence</b>
+    by combining inventory snapshots, shipment records, routing efficiency scores, cluster-based
+    transfer recommendations, supplier metrics, product master data, and time-calendar signals
+    into a unified AI-driven analytics pipeline.
+    </p>
+
+    <p>
+    Unlike traditional supply chain systems that operate at an
+    <b>aggregate or category level</b>, this platform provides
+    <b>fine-grained insights at the SKU × Store × Route × Cluster × Supplier × Time level</b>,
+    empowering data-driven decisions across inventory planning, logistics, and procurement.
+    </p>
+
+    <h4 style="margin-top:22px;">Why This Matters</h4>
+
+    <p>
+    Supply chain performance is influenced by far more than historical stock levels.
+    This engine captures <b>real-world drivers of supply chain efficiency</b>, including:
+    </p>
+
+    <ul>
+        <li>Inventory health — overstock, understock, fill rates, stockout rates, turnover</li>
+        <li>Shipment performance — delivery times, fuel costs, route efficiency scores</li>
+        <li>Cluster-based transfer intelligence — optimal transfer quantities, cost minimization</li>
+        <li>Supplier reliability — lead times, rating scores, contract terms, payment preferences</li>
+        <li>Product lifecycle signals — shelf life, pricing, category and subcategory patterns</li>
+        <li>Time and seasonality — holidays, weekends, quarterly and monthly demand shifts</li>
+    </ul>
+
+    <p style="margin-top:15px;">
+        <b>The result:</b> Reduced stockouts, lower overstock costs, optimized routing,
+        improved service levels, and stronger supplier partnerships.
+    </p>
+
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
 
-# ============================================================
-# STEP 3 – EDA (LOCKED UNTIL PREPROCESSING)
-# ============================================================
+# ================================================================
+# CSV LOADER
+# ================================================================
+@st.cache_data
+def load_data():
+    return pd.read_csv("data/FACT_SUPPLY_CHAIN_DATA.csv")
 
-# Initialize preprocessing_completed if not exists
-if "preprocessing_completed" not in st.session_state:
-    st.session_state.preprocessing_completed = False
 
-if not st.session_state.preprocessing_completed:
-    st.info("Please apply at least one data pre-processing step to unlock EDA.")
-    st.stop()
+def show_small_plot(fig):
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=120, bbox_inches="tight")
+    buf.seek(0)
+    st.markdown("<div style='text-align:center;'>", unsafe_allow_html=True)
+    st.image(buf, width=480)
+    st.markdown("</div>", unsafe_allow_html=True)
 
+
+# ================================================================
+# STEP 1 – DATA COLLECTION & INTEGRATION
+# ================================================================
 st.markdown(
     """
     <div style="
@@ -2057,24 +547,17 @@ st.markdown(
         padding:18px 25px;
         border-radius:10px;
         color:white;
-        margin-top:25px;
-        margin-bottom:12px;
+        margin-top:20px;
+        margin-bottom:10px;
     ">
-        <h3 style="margin:0;">Exploratory Data Analysis</h3>
+        <h3 style="margin:0;">
+            Data Collection & Integration (Unified Supply Chain Data Ingestion)
+        </h3>
     </div>
     """,
     unsafe_allow_html=True
 )
 
-df = st.session_state.get("df", None)
-
-if df is None:
-    st.warning("⚠ No dataset available.")
-    st.stop()
-
-st.write("")
-        
-# ---------------- EDA INTRO CARD ----------------
 st.markdown(
     """
     <div style="
@@ -2087,71 +570,715 @@ st.markdown(
         margin-bottom:20px;
     ">
 
-    <b>Exploratory Data Analysis</b><br><br>
+    <p>
+    This section consolidates data from multiple enterprise supply chain sources
+    into a single analytical model.
+    </p>
 
-    Provides <b>high-level insights</b> to understand demand and inventory patterns before stock rebalancing optimization.<br><br>
-
-    <b>Key Insights Generated:</b>
+    <b>Integrated Data Domains:</b>
     <ul>
-        <li>Demand patterns and inventory imbalances</li>
-        <li>Store clustering and performance analysis</li>
-        <li>Product velocity and transfer opportunities</li>
-        <li>Customer demand signals and loyalty patterns</li>
-        <li>Promotion and event impact on inventory needs</li>
-        <li>Logistics constraints and transfer feasibility</li>
+        <li>Inventory — on-hand, reserved, in-transit, overstock, understock quantities and stock value</li>
+        <li>Shipments — shipment IDs, routes, vehicles, departure and delivery timelines</li>
+        <li>Transfer Recommendations — cluster-based optimal transfer quantities, cost and service optimization scores</li>
+        <li>Product Master — SKU codes, product names, brands, categories, subcategories, shelf life, pricing</li>
+        <li>Store & Location — store names, regions, zones, cities, store types, area, operating hours</li>
+        <li>Supplier — supplier names, lead times, rating scores, payment terms, contract periods</li>
+        <li>Time & Calendar — date, day, week, month, quarter, year, holidays, weekends</li>
     </ul>
 
-    This section focuses on <b>actionable insights for inventory redistribution</b>, not just statistical analysis.
+    <p>
+    All data is validated and aligned using a <b>consistent dimensional model</b>
+    to ensure supply chain optimization accuracy.
+    </p>
 
     </div>
     """,
     unsafe_allow_html=True
 )
 
-# ============================================================
-# COLUMN MAPPING (SAFE & SIMPLE)
-# ============================================================
 
+if "df" not in st.session_state:
+    st.session_state.df = None
+
+if st.button("Load Data"):
+    try:
+        st.session_state.df = load_data()
+    except Exception:
+        import os
+        uploads_path = "/mnt/user-data/uploads/FACT_SUPPLY_CHAIN_DATA.csv"
+        if os.path.exists(uploads_path):
+            st.session_state.df = pd.read_csv(uploads_path)
+        else:
+            st.error("Could not find FACT_SUPPLY_CHAIN_DATA.csv. Place it in data/ folder.")
+
+df = st.session_state.df
+
+if df is not None:
+    st.markdown(
+        "<h3 style='color:#000000;'>Data Preview</h3>",
+        unsafe_allow_html=True
+    )
+    render_html_table(df.head(20), max_height=260)
+    st.info(f"**Shape:** {df.shape[0]} rows × {df.shape[1]} columns")
+else:
+    st.info("Click the button above to load the dataset.")
+
+
+# ================================================================
+# STEP 2 – DATA PRE-PROCESSING
+# ================================================================
+if "preprocess_history" not in st.session_state:
+    st.session_state.preprocess_history = {
+        "duplicates": None,
+        "outliers": {},
+        "null_replaced_cols": None,
+        "null_replaced_rows": None,
+        "numeric_converted": None
+    }
+
+if "preprocessing_completed" not in st.session_state:
+    st.session_state.preprocessing_completed = False
+
+
+st.markdown("""
+<div style="
+    background-color:#0B2C5D;
+    padding:18px 25px;
+    border-radius:10px;
+    color:white;
+    margin-top:25px;
+    margin-bottom:12px;
+">
+    <h3 style="margin:0;">
+        Data Pre-Processing (Data Quality & Readiness)
+    </h3>
+</div>
+""", unsafe_allow_html=True)
+
+st.markdown("""
+<div style="
+    background-color:#2F75B5;
+    padding:24px;
+    border-radius:12px;
+    color:white;
+    font-size:16px;
+    line-height:1.7;
+    margin-bottom:20px;
+">
+This section ensures the dataset is <b>model-ready</b> by handling:
+<ul>
+    <li>Missing values and inconsistencies across supply chain fields</li>
+    <li>Outliers and anomalies in inventory quantities, delivery times, and cost metrics</li>
+    <li>Data type validation for numeric, categorical, and date fields</li>
+    <li>Referential integrity checks across product, store, route, and supplier dimensions</li>
+    <li>Time alignment and granularity normalization across shipment and inventory records</li>
+</ul>
+
+This step guarantees that downstream models are trained on
+<b>clean, reliable, and trustworthy supply chain data.</b>
+</div>
+""", unsafe_allow_html=True)
+
+if st.session_state.df is None:
+    st.warning("⚠ Load data first.")
+    st.stop()
+
+df = st.session_state.df
+
+st.markdown(
+    "<div style='font-size:20px; font-weight:600; margin-bottom:8px;'>"
+    "Select a Data Pre-Processing Step"
+    "</div>",
+    unsafe_allow_html=True
+)
+st.write("")
+
+step = st.radio(
+    "",
+    [
+        "Remove Duplicate Rows",
+        "Remove Outliers",
+        "Replace Missing Values"
+    ],
+    index=None,
+    horizontal=True,
+    label_visibility="collapsed"
+)
+
+
+# ================================================================
+# 1. REMOVE DUPLICATE ROWS
+# ================================================================
+if "dup_before_df" not in st.session_state:
+    st.session_state.dup_before_df = None
+if "dup_removed_df" not in st.session_state:
+    st.session_state.dup_removed_df = None
+if "dup_after_df" not in st.session_state:
+    st.session_state.dup_after_df = None
+
+if step == "Remove Duplicate Rows":
+
+    st.markdown("### Remove Duplicate Rows")
+    st.write("")
+
+    st.markdown("""
+<div style="
+    background-color:#2F75B5;
+    padding:28px;
+    border-radius:12px;
+    color:white;
+    font-size:16px;
+    line-height:1.6;
+    margin-bottom:20px;
+">
+<b>What this does:</b>
+This step identifies and removes <b>exact duplicate records</b> from the supply chain dataset.<br>
+
+<b>Duplicate rows often occur due to:</b>
+<ul>
+    <li>Multiple ETL pipeline runs or batch ingestion retries</li>
+    <li>System sync failures between WMS, TMS, and ERP systems</li>
+    <li>Manual data merges during consolidation from multiple warehouses</li>
+    <li>Duplicate shipment or inventory snapshot records from automated feeds</li>
+</ul><br>
+
+<b>Why this is important:</b>
+<ul>
+    <li>Prevents double-counting of inventory quantities and shipment records</li>
+    <li>Avoids inflated stock values and misleading supply chain KPIs</li>
+    <li>Ensures transfer recommendation logic operates on clean, unique records</li>
+    <li>Maintains data integrity across product, store, and supplier dimensions</li>
+</ul>
+</div>
+""", unsafe_allow_html=True)
+
+    before_df = st.session_state.df.copy()
+    dup_rows = before_df[before_df.duplicated()]
+
+    st.markdown(f"""
+    <div class="summary-grid">
+        <div class="summary-card">
+            <div class="summary-title">Total Rows</div>
+            <div class="summary-value">{before_df.shape[0]:,}</div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-title">Duplicate Rows Found</div>
+            <div class="summary-value">{dup_rows.shape[0]:,}</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    if st.button("Apply Duplicate Removal"):
+        if st.session_state.dup_removed_df is not None:
+            st.info("Duplicate rows were already removed in this session.")
+        else:
+            if dup_rows.empty:
+                st.info("No duplicate rows found in this dataset.")
+            else:
+                after_df = before_df.drop_duplicates().reset_index(drop=True)
+                st.session_state.dup_before_df = before_df
+                st.session_state.dup_removed_df = dup_rows
+                st.session_state.dup_after_df = after_df
+                st.session_state.df = after_df
+                st.session_state.preprocessing_completed = True
+                st.success("✔ Duplicate rows removed successfully")
+
+    if st.session_state.dup_removed_df is not None:
+        before_df = st.session_state.dup_before_df
+        after_df = st.session_state.dup_after_df
+        removed_df = st.session_state.dup_removed_df
+
+        st.markdown("#### Duplicate Removal Summary")
+        st.write("")
+        st.markdown("""
+        <div class="summary-grid">
+            <div class="summary-card">
+                <div class="summary-title">Rows Before</div>
+                <div class="summary-value">{}</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-title">Rows After</div>
+                <div class="summary-value">{}</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-title">Duplicates Removed</div>
+                <div class="summary-value">{}</div>
+            </div>
+        </div>
+        """.format(
+            before_df.shape[0],
+            after_df.shape[0],
+            removed_df.shape[0]
+        ), unsafe_allow_html=True)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown(f"#### Before Duplicate Removal ({before_df.shape[0]} Rows)")
+        st.write("")
+        render_html_table(before_df, title=None, max_height=300)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown(f"#### After Duplicate Removal ({after_df.shape[0]} Rows)")
+        st.write("")
+        render_html_table(after_df, title=None, max_height=300)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown(f"#### Duplicates Removed ({removed_df.shape[0]} Rows)")
+        st.write("")
+        render_html_table(removed_df, title=None, max_height=300)
+
+
+# ================================================================
+# 2. REMOVE OUTLIERS
+# ================================================================
+if "out_before_df" not in st.session_state:
+    st.session_state.out_before_df = None
+if "out_after_df" not in st.session_state:
+    st.session_state.out_after_df = None
+if "out_removed_df" not in st.session_state:
+    st.session_state.out_removed_df = None
+
+if step == "Remove Outliers":
+
+    st.markdown("### Remove Outliers")
+    st.write("")
+
+    st.markdown("""
+    <div style="
+        background-color:#2F75B5;
+        padding:24px;
+        border-radius:12px;
+        color:white;
+        font-size:16px;
+        line-height:1.7;
+        margin-bottom:20px;
+    ">
+    <b>What this does:</b><br>
+    This step identifies and handles <b>statistical outliers</b> in supply chain numeric fields using a
+    <b>robust IQR-based method</b>.
+
+    Outlier handling is performed <b>internally</b> and follows a <b>two-level strategy</b>:
+    <ul>
+        <li><b>Mild anomalies</b> are <b>capped</b> to safe bounds (no row deletion)</li>
+        <li><b>Extreme anomalies</b> in <b>critical columns</b> are <b>removed</b></li>
+    </ul>
+
+    <br>
+
+    <b>Critical supply chain columns targeted for deletion:</b>
+    <ul>
+        <li><code>on_hand_qty</code> — physically impossible stock levels</li>
+        <li><code>delivery_time_mins</code> — unrealistically long or negative delivery records</li>
+        <li><code>transfer_qty</code> — extreme transfer quantities exceeding logical bounds</li>
+    </ul>
+
+    <br>
+
+    <b>Why this is important:</b>
+    <ul>
+        <li>Prevents extreme stock counts from skewing inventory optimization models</li>
+        <li>Removes erroneous delivery records that distort route efficiency analysis</li>
+        <li>Stabilizes fuel cost and transfer cost distributions for fair comparison</li>
+        <li>Ensures inventory turnover and fill rate KPIs remain business-realistic</li>
+    </ul>
+    <br>
+
+    <b>How it helps supply chain optimization:</b>
+    <li>
+    Inventory and routing models are sensitive to extreme values.
+    By controlling these extremes, the model learns from realistic operational behavior
+    rather than rare or erroneous records.
+    </li>
+
+    <li>
+    This improves forecasting by preserving <b>true demand and inventory signals</b>,
+    reducing noise, and ensuring recommendations remain
+    <b>stable, generalizable, and operationally relevant</b> across products, stores, and routes.
+    </li>
+
+    </div>
+    """, unsafe_allow_html=True)
+
+    df = st.session_state.df
+    numeric_cols = df.select_dtypes(include=np.number).columns.tolist()
+
+    if not numeric_cols:
+        st.info("No numeric columns available for outlier detection.")
+        st.stop()
+
+    DELETE_COLS = ["on_hand_qty", "delivery_time_mins", "transfer_qty"]
+
+    if st.button("Apply Outlier Removal"):
+
+        if st.session_state.out_removed_df is not None:
+            st.info("Outliers were already handled earlier.")
+
+        else:
+            before_df = df.copy()
+            after_df = before_df.copy()
+
+            outlier_count = pd.Series(0, index=before_df.index)
+
+            for col in numeric_cols:
+                Q1 = before_df[col].quantile(0.25)
+                Q3 = before_df[col].quantile(0.75)
+                IQR = Q3 - Q1
+
+                mild_lower = Q1 - 1.5 * IQR
+                mild_upper = Q3 + 1.5 * IQR
+
+                extreme_lower = Q1 - 2.0 * IQR
+                extreme_upper = Q3 + 2.0 * IQR
+
+                is_mild = (
+                    (before_df[col] < mild_lower) |
+                    (before_df[col] > mild_upper)
+                )
+
+                outlier_count += is_mild.astype(int)
+
+                if col in DELETE_COLS:
+                    outlier_count += (
+                        (before_df[col] < extreme_lower) |
+                        (before_df[col] > extreme_upper)
+                    ).astype(int) * 2
+
+                after_df[col] = after_df[col].clip(mild_lower, mild_upper)
+
+            extreme_mask = outlier_count >= 4
+
+            removed_df = before_df[extreme_mask]
+            after_df = after_df[~extreme_mask].reset_index(drop=True)
+
+            st.session_state.out_before_df = before_df
+            st.session_state.out_removed_df = removed_df
+            st.session_state.out_after_df = after_df
+
+            st.session_state.df = after_df
+            st.session_state.preprocessing_completed = True
+
+            st.success("✔ Outliers handled successfully")
+
+    if st.session_state.out_removed_df is not None:
+
+        before_df = st.session_state.out_before_df
+        after_df = st.session_state.out_after_df
+        removed_df = st.session_state.out_removed_df
+
+        st.markdown("#### Outlier Removal Summary")
+        st.write("")
+        st.markdown("""
+        <div class="summary-grid">
+            <div class="summary-card">
+                <div class="summary-title">Rows Before</div>
+                <div class="summary-value">{}</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-title">Rows After</div>
+                <div class="summary-value">{}</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-title">Outliers Removed</div>
+                <div class="summary-value">{}</div>
+            </div>
+        </div>
+        """.format(
+            before_df.shape[0],
+            after_df.shape[0],
+            removed_df.shape[0]
+        ), unsafe_allow_html=True)
+        st.write("")
+        st.markdown(f"#### Before Outlier Handling ({before_df.shape[0]} Rows)")
+        st.write("")
+        render_html_table(before_df, max_height=300)
+        st.write("")
+
+        st.markdown(f"#### After Outlier Handling ({after_df.shape[0]} Rows)")
+        st.write("")
+        render_html_table(after_df, max_height=300)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        st.markdown(f"#### Outliers Removed ({removed_df.shape[0]} Rows)")
+        st.write("")
+        render_html_table(removed_df, max_height=300)
+
+
+# ================================================================
+# 3. REPLACE MISSING VALUES
+# ================================================================
+if "null_before_rows" not in st.session_state:
+    st.session_state.null_before_rows = None
+if "null_after_rows" not in st.session_state:
+    st.session_state.null_after_rows = None
+if "null_replaced_cols" not in st.session_state:
+    st.session_state.null_replaced_cols = None
+
+elif step == "Replace Missing Values":
+
+    st.markdown("### Replace Missing Values")
+    st.write("")
+
+    st.markdown(
+    """
+    <div style="
+        background-color:#2F75B5;
+        padding:28px;
+        border-radius:12px;
+        color:white;
+        font-size:16px;
+        line-height:1.6;
+        margin-bottom:20px;
+    ">
+
+    <b>What this does:</b><br>
+
+    For non-critical categorical fields, missing values are replaced with a placeholder:<br>
+    "<b>Unknown</b>"<br><br>
+
+    <b>Supply chain examples where this applies:</b>
+    <li>Cluster Name — stores not yet assigned to an optimization cluster</li>
+    <li>Model Version — records without a transfer model version tag</li>
+    <li>Operating Hours — stores with no recorded operating schedule</li>
+    <li>Preferred Payment Terms — suppliers with pending contract details</li><br>
+
+    <b>Why this is important:</b>
+    <li>Preserves valuable supply chain records instead of discarding them</li>
+    <li>Keeps categorical columns consistent for downstream encoding</li>
+    <li>Allows models to learn from "unknown" patterns — e.g., unassigned cluster nodes</li><br>
+
+    <b>Modelling advantage:</b><br>
+    Many ML models handle a distinct "<b>Unknown</b>" category better than missing values.<br>
+
+    This improves:
+    <li>Model stability across cluster and routing assignments</li>
+    <li>Feature completeness for supplier and product dimensions</li>
+    <li>Interpretability — unknown entries are explicitly flagged, not hidden</li>
+
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+    df = st.session_state.df
+
+    null_mask = df.isnull()
+    affected_rows_before = df[null_mask.any(axis=1)]
+    null_counts = null_mask.sum()
+    null_counts = null_counts[null_counts > 0]
+
+    if st.button("Apply NULL Replacement"):
+
+        if null_counts.empty:
+            st.info("This dataset has no missing values — no replacement needed.")
+
+        else:
+            st.session_state.null_before_rows = affected_rows_before.copy()
+
+            st.session_state.null_replaced_cols = (
+                null_counts.to_frame("NULL Count")
+            )
+
+            df_updated = df.fillna("Unknown")
+            st.session_state.df = df_updated
+            st.session_state.preprocessing_completed = True
+
+            st.session_state.null_after_rows = df_updated.loc[
+                affected_rows_before.index
+            ].copy()
+
+            st.success("✔ NULL values replaced with 'Unknown'")
+
+    if (
+        st.session_state.null_before_rows is not None and
+        st.session_state.null_after_rows is not None and
+        st.session_state.null_replaced_cols is not None
+    ):
+
+        before_rows = st.session_state.null_before_rows
+        after_rows = st.session_state.null_after_rows
+        replaced_cols = st.session_state.null_replaced_cols
+
+        st.markdown("#### Columns Where NULL Values Were Replaced")
+        st.write("")
+
+        if not replaced_cols.empty:
+            value_col = replaced_cols.columns[0]
+
+            html_cards = "".join(
+                f"""
+                <div class="summary-card">
+                    <div class="summary-title">{str(idx).replace('_', ' ').title()}</div>
+                    <div class="summary-value">{row[value_col]}</div>
+                </div>
+                """
+                for idx, row in replaced_cols.iterrows()
+            )
+
+            st.markdown(
+                f"""
+                <div class="summary-grid">
+                    {html_cards}
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+        else:
+            st.info("No NULL values were replaced.")
+
+        st.write("")
+        st.markdown(
+            f"#### Rows Before Missing Values Replacement ({before_rows.shape[0]} Rows)"
+        )
+        st.write("")
+        render_html_table(before_rows)
+
+        st.markdown(
+            f"#### Rows After Missing Values Replacement ({after_rows.shape[0]} Rows)"
+        )
+        st.write("")
+        render_html_table(after_rows)
+
+    elif null_counts.empty and st.session_state.null_before_rows is None:
+        st.info("ℹ This dataset has no missing values — all fields are complete.")
+
+
+# ================================================================
+# STEP 3 – EDA (LOCKED UNTIL PREPROCESSING)
+# ================================================================
+
+if not st.session_state.preprocessing_completed:
+    st.info("ℹ Please apply at least one data pre-processing step to unlock EDA.")
+    st.stop()
+
+df = st.session_state.get("df", None)
+
+if df is None:
+    st.warning("⚠ No dataset available.")
+    st.stop()
+
+if "eda_completed" not in st.session_state:
+    st.session_state.eda_completed = False
+
+st.markdown(
+    """
+    <div style="
+        background-color:#0B2C5D;
+        padding:18px 25px;
+        border-radius:10px;
+        color:white;
+        margin-top:20px;
+        margin-bottom:10px;
+    ">
+        <h3 style="margin:0;">Exploratory Data Analysis (EDA)</h3>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+st.write("")
+st.info(f"Dataset Loaded: **{df.shape[0]} rows × {df.shape[1]} columns**")
+st.write("")
+
+st.markdown(
+    """
+    <div style="
+        background-color:#2F75B5;
+        padding:28px;
+        border-radius:12px;
+        color:white;
+        font-size:16px;
+        line-height:1.6;
+        margin-bottom:20px;
+    ">
+
+    <b>Exploratory Data Analysis (EDA)</b><br><br>
+
+    Provides <b>high-level supply chain intelligence</b> to understand operational behavior
+    before model engineering.<br><br>
+
+    <b>Key Insights Generated:</b>
+    <ul>
+        <li>Inventory health patterns over time — overstock, understock, fill rates, stockouts</li>
+        <li>Product-level stock value, turnover, and demand index distributions</li>
+        <li>Store and regional performance — which locations drive most inventory risk</li>
+        <li>Shipment and routing efficiency — delivery times, fuel costs, route scores</li>
+        <li>Cluster-based transfer analysis — optimal transfer quantities and cost savings</li>
+        <li>Supplier performance — lead times, ratings, pricing, and contract quality</li>
+        <li>Time and seasonality signals — holiday vs non-holiday, weekly and monthly patterns</li>
+    </ul>
+
+    This section focuses on <b>interpretability</b> and operational insight, not deep statistical modeling.
+
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+# ================================================================
+# COLUMN MAPPING
+# ================================================================
 def map_col(candidates):
     for c in candidates:
         if c in df.columns:
             return c
     return None
 
-col_rev     = map_col(["total_sales_amount"])
-col_qty     = map_col(["quantity_sold"])
-col_price   = map_col(["unit_price"])
-col_date    = map_col(["date"])
-col_product = map_col(["product_id"])
-col_store   = map_col(["store_id"])
-col_channel = map_col(["sales_channel_id"])
-col_event   = map_col(["event_id"])
-col_promo   = map_col(["promo_id"])
+col_product   = map_col(["product_id"])
+col_store     = map_col(["store_id"])
+col_route     = map_col(["route_id"])
+col_vehicle   = map_col(["vehicle_id"])
+col_supplier  = map_col(["supplier_id"])
+col_cluster   = map_col(["cluster_id"])
+col_cluster_name = map_col(["cluster_name"])
+col_date      = map_col(["date"])
+col_onhand    = map_col(["on_hand_qty"])
+col_overstock = map_col(["overstock_qty"])
+col_understock = map_col(["understock_qty"])
+col_stockval  = map_col(["stock_value"])
+col_fill_rate = map_col(["fill_rate_pct"])
+col_stockout  = map_col(["stockout_pct"])
+col_turnover  = map_col(["inventory_turnover"])
+col_excess    = map_col(["excess_inventory_pct"])
+col_delivery  = map_col(["delivery_time_mins"])
+col_fuel      = map_col(["fuel_cost"])
+col_efficiency = map_col(["route_efficiency_score"])
+col_transfer_qty = map_col(["transfer_qty"])
+col_transfer_cost = map_col(["transfer_cost"])
+col_opt_qty   = map_col(["optimal_transfer_qty"])
+col_cost_min  = map_col(["cost_minimization_pct"])
+col_service_gain = map_col(["service_level_gain_pct"])
+col_confidence = map_col(["model_confidence_score"])
+col_demand_index = map_col(["demand_index"])
+col_overstock_index = map_col(["overstock_index"])
+col_lead_time = map_col(["lead_time_days"])
+col_rating    = map_col(["rating_score"])
+col_cost_price = map_col(["cost_price"])
+col_mrp       = map_col(["mrp"])
+col_category  = map_col(["category"])
+col_region    = map_col(["region"])
+col_zone      = map_col(["zone"])
+col_store_type = map_col(["store_type"])
+col_year      = map_col(["year"])
+col_month     = map_col(["month"])
+col_quarter   = map_col(["quarter"])
+col_is_holiday = map_col(["is_holiday"])
+col_is_weekend = map_col(["is_weekend"])
+col_distance  = map_col(["distance_km"])
+col_shelf_life = map_col(["shelf_life_days"])
 
 num_df = df.select_dtypes(include=np.number)
 
-# ============================================================
+
+# ================================================================
 # EDA NAVIGATION
-# ============================================================
-# =========================
-# EDA NAVIGATION – ACTIVE BUTTON HIGHLIGHT (SAFE)
-# =========================
-
-# =========================
-# EDA NAVIGATION (INSTANT COLOR CHANGE)
-# =========================
-
-st.markdown("###  List of Analytics")
-st.markdown(
-    "<div style='margin-top:6px'></div>",
-    unsafe_allow_html=True
-)
+# ================================================================
+st.markdown("### List of Analytics")
+st.markdown("<div style='margin-top:6px'></div>", unsafe_allow_html=True)
 
 if "eda_option" not in st.session_state:
     st.session_state.eda_option = None
 
+
 def nav_button(label, value):
-    """Instant active highlight + no size change"""
     if st.session_state.eda_option == value:
         st.markdown(
             f"""
@@ -2174,44 +1301,73 @@ def nav_button(label, value):
             st.session_state.eda_option = value
             st.rerun()
 
-row1 = st.columns(5)
-row2 = st.columns(4)
 
-with row1[0]:
-    nav_button("Data Quality Overview", "Data Quality Overview")
-with row1[1]:
-    nav_button("Inventory Overview", "Inventory Overview")
-with row1[2]:
-    nav_button("Transfer Effectiveness", "Transfer Effectiveness")
-with row1[3]:
-    nav_button("Product-Level Analysis", "Product-Level Analysis")
-with row1[4]:
-    nav_button("Route-Level Analysis", "Route-Level Analysis")
+with st.expander(" ", expanded=True):
+    row1 = st.columns(5)
+    row2 = st.columns(4)
 
-with row2[0]:
-    nav_button("Model Impact Analysis", "Model Impact Analysis")
-with row2[1]:
-    nav_button("Store-Level Analysis", "Store-Level Analysis")
-with row2[2]:
-    nav_button("Cluster Analysis", "Cluster Analysis")
-with row2[3]:
-    nav_button("Summary Report", "Summary Report")
+    with row1[0]:
+        nav_button("Data Quality Overview", "Data Quality Overview")
+    with row1[1]:
+        nav_button("Inventory Overview", "Inventory Overview")
+    with row1[2]:
+        nav_button("Product-Level Analysis", "Product-Level Analysis")
+    with row1[3]:
+        nav_button("Store & Regional Analysis", "Store & Regional Analysis")
+    with row1[4]:
+        nav_button("Shipment & Routing Analysis", "Shipment & Routing Analysis")
+
+    with row2[0]:
+        nav_button("Cluster Transfer Analysis", "Cluster Transfer Analysis")
+    with row2[1]:
+        nav_button("Supplier Analysis", "Supplier Analysis")
+    with row2[2]:
+        nav_button("Time & Seasonality Analysis", "Time & Seasonality Analysis")
+    with row2[3]:
+        nav_button("Summary Report", "Summary Report")
 
 
 eda_option = st.session_state.eda_option
-st.markdown(
-    "<div style='margin-top:6px'></div>",
-    unsafe_allow_html=True
-)
+if eda_option is not None:
+    st.session_state.eda_completed = True
+
+st.markdown("<div style='margin-top:6px'></div>", unsafe_allow_html=True)
 
 if eda_option is None:
     st.info("Select an analysis to view insights.")
-    st.stop()
 
-# ============================================================
-# EDA ROUTER (DO NOT BREAK THIS STRUCTURE)
-# ============================================================
 
+# ================================================================
+# COMMON CHART THEME VARS
+# ================================================================
+GREEN_BG   = "#00D05E"
+GRID_GREEN = "#3B3B3B"
+BAR_BLUE   = "#001F5C"
+
+
+def blue_title(title):
+    st.markdown(
+        f"""
+        <div style="
+            background-color:#2F75B5;
+            padding:14px;
+            border-radius:8px;
+            font-size:16px;
+            color:white;
+            margin-bottom:8px;
+            text-align:center;
+            font-weight:600;
+        ">
+            {title}
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+# ================================================================
+# EDA – DATA QUALITY OVERVIEW
+# ================================================================
 if eda_option == "Data Quality Overview":
 
     st.markdown(
@@ -2228,27 +1384,28 @@ if eda_option == "Data Quality Overview":
 
         <b>What this section does:</b>
 
-        This section provides a <b>high-level health check</b> of the dataset before any modeling or forecasting is attempted.
+        This provides a <b>high-level health check</b> of the supply chain dataset
+        before any optimization or forecasting is attempted.
 
         It evaluates:
         <ul>
-            <li>Missing values</li>
-            <li>Duplicate records</li>
-            <li>Data type consistency</li>
+            <li>Missing values across all 82 supply chain fields</li>
+            <li>Duplicate records that may inflate inventory counts</li>
+            <li>Data type consistency across numeric, categorical, and date fields</li>
             <li>Overall row and column completeness</li>
         </ul>
 
         <b>Why this matters:</b>
 
-        Demand forecasting models are highly sensitive to <b>poor data quality</b>.
-        Even small inconsistencies (missing prices, invalid quantities, duplicate transactions)
-        can significantly distort predictions.<br>
+        Supply chain optimization models are highly sensitive to <b>poor data quality</b>.
+        Even small inconsistencies — duplicate shipment records, invalid inventory quantities,
+        missing route IDs — can significantly distort recommendations.<br>
 
         <b>Key insights users get:</b>
         <ul>
             <li>Whether the dataset is <b>model-ready</b></li>
             <li>Which columns require cleaning or transformation</li>
-            <li>Confidence in the reliability of downstream analysis</li>
+            <li>Confidence in the reliability of downstream supply chain analysis</li>
         </ul>
 
         </div>
@@ -2256,839 +1413,285 @@ if eda_option == "Data Quality Overview":
         unsafe_allow_html=True
     )
 
-    # =========================
-    # PREPARE DATA
-    # =========================
     rows_count = df.shape[0]
     cols_count = df.shape[1]
-    
     dup_count = df.duplicated().sum()
     dtype_counts = df.dtypes.value_counts()
 
     mv = (df.isnull().mean() * 100).round(2).sort_values(ascending=False)
+    mv_nonzero = mv[mv > 0]
 
-    # =========================
-    # DATASET SHAPE
-    # =========================
     st.markdown(
         f"""
         <div class="quality-card">
             <div class="quality-title">Dataset Shape</div>
             <table class="clean-table">
                 <tr><th>Metric</th><th>Value</th></tr>
-                <tr><td>Total Rows</td><td>{rows_count}</td></tr>
+                <tr><td>Total Rows</td><td>{rows_count:,}</td></tr>
                 <tr><td>Total Columns</td><td>{cols_count}</td></tr>
+                <tr><td>Numeric Columns</td><td>{len(df.select_dtypes(include=np.number).columns)}</td></tr>
+                <tr><td>Categorical Columns</td><td>{len(df.select_dtypes(exclude=np.number).columns)}</td></tr>
+                <tr><td>Memory Usage</td><td>{df.memory_usage(deep=True).sum() / 1024**2:.1f} MB</td></tr>
             </table>
         </div>
         """,
         unsafe_allow_html=True
     )
 
-    # =========================
-    # MISSING VALUE ANALYSIS
-    # =========================
-    st.markdown(
-        f"""
-        <div class="quality-card">
-            <div class="quality-title">Missing Value Analysis (%)</div>
-            <div class="table-scroll">
+    c1, c2, c3 = st.columns(3)
+
+    with c1:
+        if mv_nonzero.empty:
+            mv_rows = "<tr><td colspan='2' style='text-align:center;color:green;'>✔ No missing values</td></tr>"
+        else:
+            mv_rows = "".join(f"<tr><td>{c}</td><td>{v}%</td></tr>" for c, v in mv_nonzero.items())
+
+        st.markdown(
+            f"""
+            <div class="quality-card">
+                <div class="quality-title">Missing Value Analysis (%)</div>
+                <div class="table-scroll">
+                    <table class="clean-table">
+                        <tr><th>Column Name</th><th>Missing (%)</th></tr>
+                        {mv_rows}
+                    </table>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+    with c2:
+        st.markdown(
+            f"""
+            <div class="quality-card">
+                <div class="quality-title">Duplicate Analysis</div>
                 <table class="clean-table">
-                    <tr><th>Column Name</th><th>Missing (%)</th></tr>
-                    {''.join([f"<tr><td>{c}</td><td>{v}%</td></tr>" for c, v in mv.items()])}
+                    <tr><th>Metric</th><th>Value</th></tr>
+                    <tr><td>Total Duplicate Rows</td><td>{dup_count:,}</td></tr>
                 </table>
             </div>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+            """,
+            unsafe_allow_html=True
+        )
 
-    # =========================
-    # DUPLICATE ANALYSIS
-    # =========================
-    st.markdown(
-        f"""
-        <div class="quality-card">
-            <div class="quality-title">Duplicate Analysis</div>
-            <table class="clean-table">
-                <tr><th>Metric</th><th>Value</th></tr>
-                <tr><td>Total Duplicate Rows</td><td>{dup_count}</td></tr>
-            </table>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    with c3:
+        st.markdown(
+            f"""
+            <div class="quality-card">
+                <div class="quality-title">Data Types Summary</div>
+                <table class="clean-table">
+                    <tr><th>Data Type</th><th>Column Count</th></tr>
+                    {''.join([f"<tr><td>{d}</td><td>{c}</td></tr>" for d, c in dtype_counts.items()])}
+                </table>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
-    # =========================
-    # DATA TYPES SUMMARY
-    # =========================
-    st.markdown(
-        f"""
-        <div class="quality-card">
-            <div class="quality-title">Data Types Summary</div>
-            <table class="clean-table">
-                <tr><th>Data Type</th><th>Column Count</th></tr>
-                {''.join([f"<tr><td>{d}</td><td>{c}</td></tr>" for d, c in dtype_counts.items()])}
-            </table>
-        </div>
-        """,
-        unsafe_allow_html=True
+    st.markdown("#### Numeric Column Statistics")
+    render_html_table(
+        df.describe().T.round(2).reset_index().rename(columns={"index": "Column"}),
+        max_height=400
     )
 
 
+# ================================================================
+# EDA – INVENTORY OVERVIEW
+# ================================================================
 elif eda_option == "Inventory Overview":
-    # Column mapping for inventory data
-    col_stock_value = None
-    col_on_hand = None
-    col_fill_rate = None
-    col_stockout = None
-    col_turnover = None
-    
-    # Find stock value column
-    for col in ['stock_value', 'inventory_value', 'total_stock_value']:
-        if col in df.columns:
-            col_stock_value = col
-            break
-    
-    # Find on hand quantity column
-    for col in ['on_hand_qty', 'on_hand_quantity', 'stock_on_hand']:
-        if col in df.columns:
-            col_on_hand = col
-            break
-    
-    # Find fill rate column
-    for col in ['fill_rate_pct', 'fill_rate', 'fill_percentage']:
-        if col in df.columns:
-            col_fill_rate = col
-            break
-    
-    # Find stockout percentage column
-    for col in ['stockout_pct', 'stockout_percentage', 'out_of_stock_pct']:
-        if col in df.columns:
-            col_stockout = col
-            break
-    
-    # Find inventory turnover column
-    for col in ['inventory_turnover', 'turnover', 'stock_turnover']:
-        if col in df.columns:
-            col_turnover = col
-            break
 
     st.markdown(
-    """
-    <div style="
-        background-color:#2F75B5;
-        padding:28px;
-        border-radius:12px;
-        color:black;
-        font-size:16px;
-        line-height:1.6;
-        margin-bottom:20px;
-    ">
-    <b>What this section does:</b>
-    <ul>
-        <li>Analyzes inventory performance at the product (SKU) level</li>
-        <li>Highlights top products by stock value and quantity</li>
-        <li>Shows inventory concentration across products</li>
-    </ul>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
-    # ---------- ROW 1 ----------
-    st.markdown(
-        """
-        <div class="summary-grid">
-            <div class="summary-card">
-                <div class="summary-title">Total Stock Value</div>
-                <div class="summary-value">{}</div>
-            </div>
-            <div class="summary-card">
-                <div class="summary-title">Average Stock Value</div>
-                <div class="summary-value">{}</div>
-            </div>
-            <div class="summary-card">
-                <div class="summary-title">Maximum Stock Value</div>
-                <div class="summary-value">{}</div>
-            </div>
-        </div>
-        """.format(
-            f"${df[col_stock_value].sum():,.2f}" if col_stock_value else "NA",
-            f"${df[col_stock_value].mean():,.2f}" if col_stock_value else "NA",
-            f"${df[col_stock_value].max():,.2f}" if col_stock_value else "NA",
-        ),
-        unsafe_allow_html=True
-        )
-
-        # ---------- ROW 2 ----------
-    st.markdown(
-        """
-        <div class="summary-grid">
-            <div class="summary-card">
-                <div class="summary-title">Total On Hand Quantity</div>
-                <div class="summary-value">{}</div>
-            </div>
-            <div class="summary-card">
-                <div class="summary-title">Average On Hand Quantity</div>
-                <div class="summary-value">{}</div>
-            </div>
-            <div class="summary-card">
-                <div class="summary-title">Total Products</div>
-                <div class="summary-value">{}</div>
-            </div>
-        </div>
-        """.format(
-            f"{df[col_on_hand].sum():,}" if col_on_hand else "NA",
-            f"{df[col_on_hand].mean():.2f}" if col_on_hand else "NA",
-            f"{df['product_id'].nunique():,}" if 'product_id' in df.columns else "NA",
-        ),
-        unsafe_allow_html=True
-    )
-
-    # ---------- STOCK VALUE BY TIME ----------
-    # Button to open Tableau dashboard
-    if st.button("📊 Stock Value By Time", use_container_width=True):
-        # Open in new tab (most reliable)
-        st.markdown(
-            """
-            <script>
-                window.open('https://public.tableau.com/app/profile/tharani.g3201/viz/Book1_17731518199010/Sheet1?publish=yes', '_blank');
-            </script>
-            """,
-            unsafe_allow_html=True
-        )
-        st.success("📊 Opening stock value graph in new tab!")
-        
-        # Embedding blocked by Tableau Public security
-        # st.markdown("""
-        #     <iframe 
-        #         src="https://public.tableau.com/app/profile/tharani.g3201/viz/Book1_17731518199010/Sheet1?publish=yes"
-        #         width="100%" 
-        #         height="800" 
-        #         frameborder="0">
-        #     </iframe>
-        # """, unsafe_allow_html=True)
-
-    # ---------- STORE ANALYSIS ----------
-    if 'store_id' in df.columns and col_stock_value:
-        st.markdown(
         """
         <div style="
             background-color:#2F75B5;
-            padding:18px 25px;
-            border-radius:10px;
-            font-size:20px;
+            padding:28px;
+            border-radius:12px;
             color:white;
-            margin-top:20px;
-            margin-bottom:10px;
-            text-align:center;
+            font-size:16px;
+            line-height:1.6;
+            margin-bottom:20px;
         ">
-            <b>Stock Value By Store</b>
+
+        <b>What this section does:</b>
+
+        This provides a <b>macro-level snapshot of inventory health</b> across all
+        products, stores, and time periods, answering the question:
+        "What does our overall inventory position look like — and where are the risks?"
+
+        It typically highlights:
+        <ul>
+            <li>Total on-hand, overstock, and understock quantities</li>
+            <li>Average fill rate and stockout rate</li>
+            <li>Inventory turnover and excess inventory percentages</li>
+            <li>Stock value distribution over time</li>
+        </ul><br>
+
+        <b>Why this matters:</b>
+
+        Before drilling into product or store details, it is important to understand:
+        <ul>
+            <li>Overall inventory health and balance</li>
+            <li>Presence of systemic overstock or understock patterns</li>
+            <li>Seasonal variation in inventory levels</li>
+        </ul><br>
+
+        <b>Key insights users get:</b>
+        <ul>
+            <li>Baseline inventory behavior across time</li>
+            <li>Early signals of overstock accumulation or stockout risk</li>
+            <li>Context for all deeper supply chain analyses</li>
+        </ul>
+
         </div>
         """,
         unsafe_allow_html=True
     )
 
-        stock_store = (
-            df.groupby('store_id')[col_stock_value]
-            .sum()
-            .sort_values(ascending=False)
-        )
+    st.markdown("### Inventory Overview")
 
-        # Create Matplotlib chart matching first image style
-        fig, ax = plt.subplots(figsize=(14, 8))
-        fig.patch.set_facecolor('#F0F2F6') # Light blue background like first image
-        ax.set_facecolor('#F0F2F6')
-        
-        bars = ax.bar(stock_store.index.astype(str), stock_store.values, color='#2F75B5')
-        
-        ax.set_title('Stock Value By Store', fontsize=20, color='#2F75B5', pad=20)
-        ax.set_xlabel('Store ID', fontsize=14, color='black')
-        ax.set_ylabel('Stock Value', fontsize=14, color='black')
-        
-        # Format y-axis with commas
-        ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x:,.0f}'))
-        
-        # Fix overlapping x-axis labels - show every nth label
-        n_stores = len(stock_store)
-        if n_stores > 10:
-            step = max(1, n_stores // 8)  # Show max 8 labels to prevent overlap
-            ax.set_xticks(range(0, n_stores, step))
-            ax.set_xticklabels(stock_store.index.astype(str)[::step], rotation=45, ha='right', fontsize=11)
-        else:
-            plt.xticks(rotation=45, ha='right', fontsize=12)
-        
-        # Set tick colors to black
-        ax.tick_params(axis='x', colors='black')
-        ax.tick_params(axis='y', colors='black')
-        
-        # Remove top and right spines for cleaner look
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        
-        # Set remaining spines to black
-        ax.spines['left'].set_color('black')
-        ax.spines['bottom'].set_color('black')
-        
-        # Add subtle grid like first image
-        ax.grid(axis='y', color='lightgray', linestyle='-', linewidth=0.5, alpha=0.6)
-        
-        plt.tight_layout()
-        
-        # Display in Streamlit
-        st.pyplot(fig, use_container_width=True)
-        plt.close()
+    total_onhand    = df[col_onhand].sum()
+    total_overstock = df[col_overstock].sum()
+    total_understock = df[col_understock].sum()
+    total_stockval  = df[col_stockval].sum()
+    avg_fill_rate   = df[col_fill_rate].mean()
+    avg_stockout    = df[col_stockout].mean()
+    avg_turnover    = df[col_turnover].mean()
+    avg_excess      = df[col_excess].mean()
 
-
-elif eda_option == "Sales Overview":
-    # Column mapping for inventory data
-    col_rev = None
-    col_qty = None
-    col_price = None
-    col_date = None
-    
-    # Find revenue column
-    for col in ['revenue', 'total_revenue', 'sales_amount', 'sales_value']:
-        if col in df.columns:
-            col_rev = col
-            break
-    
-    # Find quantity column
-    for col in ['quantity_sold', 'quantity', 'units_sold', 'sales_quantity']:
-        if col in df.columns:
-            col_qty = col
-            break
-    
-    # Find price column
-    for col in ['unit_price', 'price', 'selling_price']:
-        if col in df.columns:
-            col_price = col
-            break
-    
-    # Find date column
-    for col in ['date_id', 'date', 'transaction_date', 'sales_date']:
-        if col in df.columns:
-            col_date = col
-            break
-
-    st.markdown(
-    """
-    <div style="
-        background-color:#2F75B5;
-        padding:28px;
-        border-radius:12px;
-        color:white;
-        font-size:16px;
-        line-height:1.6;
-        margin-bottom:20px;
-    ">
-
-    <b>What this section does:</b>
-
-    This provides a <b>macro-level snapshot of sales performance</b>, answering the question:
-
-    “What does overall sales look like across time?”
-
-    It typically highlights:
-    <ul>
-        <li>Total revenue</li>
-        <li>Total units sold</li>
-        <li>Average order value</li>
-        <li>Sales trends over time</li>
-    </ul><br>
-
-    <b>Why this matters:</b>
-
-    Before diving into granular analysis, it’s important to understand:
-    <ul>
-        <li>Overall business scale</li>
-        <li>Growth or decline patterns</li>
-        <li>Presence of seasonality or anomalies</li>
-    </ul><br>
-
-    <b>Key insights users get:</b>
-    <ul>
-        <li>Baseline sales behavior</li>
-        <li>Early signals of trends or volatility</li>
-        <li>Context for all deeper analyses</li>
-    </ul>
-
+    st.markdown(f"""
+    <div class="summary-grid">
+        <div class="summary-card"><div class="summary-title">Total On-Hand Qty</div><div class="summary-value">{total_onhand:,.0f}</div></div>
+        <div class="summary-card"><div class="summary-title">Total Overstock Qty</div><div class="summary-value">{total_overstock:,.0f}</div></div>
+        <div class="summary-card"><div class="summary-title">Total Understock Qty</div><div class="summary-value">{total_understock:,.0f}</div></div>
+        <div class="summary-card"><div class="summary-title">Total Stock Value</div><div class="summary-value">₹{total_stockval:,.0f}</div></div>
     </div>
-    """,
-    unsafe_allow_html=True
-)
-    st.markdown("###  Sales Overview")
+    """, unsafe_allow_html=True)
 
-        # ---------- ROW 1 ----------
-    st.markdown(
-        """
-        <div class="summary-grid">
-            <div class="summary-card">
-                <div class="summary-title">Total Revenue</div>
-                <div class="summary-value">{}</div>
-            </div>
-            <div class="summary-card">
-                <div class="summary-title">Average Order Value</div>
-                <div class="summary-value">{}</div>
-            </div>
-            <div class="summary-card">
-                <div class="summary-title">Maximum Order Value</div>
-                <div class="summary-value">{}</div>
-            </div>
-        </div>
-        """.format(
-            f"${df[col_rev].sum():,.2f}" if col_rev else "NA",
-            f"${df[col_rev].mean():,.2f}" if col_rev else "NA",
-            f"${df[col_rev].max():,.2f}" if col_rev else "NA",
-        ),
-        unsafe_allow_html=True
-        )
-
-        # ---------- ROW 2 ----------
-    st.markdown(
-        """
-        <div class="summary-grid">
-            <div class="summary-card">
-                <div class="summary-title">Total Sales</div>
-                <div class="summary-value">{}</div>
-            </div>
-            <div class="summary-card">
-                <div class="summary-title">Total Units Sold</div>
-                <div class="summary-value">{}</div>
-            </div>
-            <div class="summary-card">
-                <div class="summary-title">Average Units / Transaction</div>
-                <div class="summary-value">{}</div>
-            </div>
-        </div>
-        """.format(
-            f"${(df[col_qty] * df[col_price]).sum():,.2f}" if col_qty and col_price else "NA",
-            f"{df[col_qty].sum():,}" if col_qty else "NA",
-            f"{df[col_qty].mean():.2f}" if col_qty else "NA",
-        ),
-        unsafe_allow_html=True
-        )
+    st.markdown(f"""
+    <div class="summary-grid">
+        <div class="summary-card"><div class="summary-title">Avg Fill Rate (%)</div><div class="summary-value">{avg_fill_rate:.1f}%</div></div>
+        <div class="summary-card"><div class="summary-title">Avg Stockout Rate (%)</div><div class="summary-value">{avg_stockout:.1f}%</div></div>
+        <div class="summary-card"><div class="summary-title">Avg Inventory Turnover</div><div class="summary-value">{avg_turnover:.2f}</div></div>
+        <div class="summary-card"><div class="summary-title">Avg Excess Inventory (%)</div><div class="summary-value">{avg_excess:.1f}%</div></div>
+    </div>
+    """, unsafe_allow_html=True)
 
     st.write("")
     st.write("")
 
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    df = df.dropna(subset=["date"])
+    df["Year"]    = df["date"].dt.year
+    df["Quarter"] = df["date"].dt.to_period("Q").astype(str)
+    df["Month"]   = df["date"].dt.to_period("M").astype(str)
 
-    # Find the correct date column
-    date_col = None
-    for col in ['created_at', 'date_id', 'date', 'transaction_date', 'order_date']:
-        if col in df.columns:
-            date_col = col
-            break
-    
-    if date_col and col_rev:
-        st.markdown(
-        """
-        <div style="
-            background-color:#2F75B5;
-            padding:18px 25px;
-            border-radius:10px;
-            font-size:20px;
-            color:white;
-            margin-top:20px;
-            margin-bottom:10px;
-            text-align:center;
-        ">
-            <b>Sales By Year</b>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-        df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
-        df = df.dropna(subset=[date_col])
-
-        df["Year"] = df[date_col].dt.year
-        df["Quarter"] = df[date_col].dt.to_period("Q").astype(str)
-        df["Month"] = df[date_col].dt.to_period("M").astype(str)
-
-        sales_by_year = (
-            df.groupby("Year")[col_rev]
-            .sum()
-            .sort_index()
-        )
-        
-        chart = (
-                alt.Chart(sales_by_year.reset_index())
-                .mark_bar(color="#001F5C",cornerRadiusEnd=6)
-                .encode(
-                    x=alt.X("Year:O", title="Year"),
-                    y=alt.Y(f"{col_rev}:Q", title="Revenue",scale=alt.Scale(padding=10)),
-                    tooltip=["Year", col_rev]
-                )
-                .properties(
-                    height=380,
-                    background="#00D05E",
-                    padding={"top": 10, "left": 10, "right": 10, "bottom": 10}
-                )
-                .configure_view(
-                    fill="#00D05E",
-                    strokeOpacity=0
-                )
-                .configure_axis(
-                    labelColor="#000000",
-                    titleColor="#000000",
-                    gridColor="rgba(0,0,0,0.2)",
-                    domainColor="rgba(0,0,0,0.3)"
-                )
-            )
-
-        st.altair_chart(chart, use_container_width=True)
-   
-        if date_col and col_rev:
-            st.markdown(
-            """
-            <div style="
-                background-color:#2F75B5;
-                padding:18px 25px;
-                border-radius:10px;
-                font-size:20px;
-                color:white;
-                margin-top:20px;
-                margin-bottom:10px;
-                text-align:center;
-            ">
-                <b>Sales By Quarters</b>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-            # Aggregate revenue by quarter
-            sales_by_quarter = (
-                df.groupby("Quarter")[col_rev]
-                .sum()
-                .sort_index()
-            )
-
-            # Altair chart with SAME layout/template as yearly chart
-            chart_quarter = (
-                alt.Chart(sales_by_quarter.reset_index())
-                .mark_bar(color="#001F5C", cornerRadiusEnd=6)
-                .encode(
-                    x=alt.X("Quarter:O", title="Quarter"),
-                    y=alt.Y(f"{col_rev}:Q", title="Revenue", scale=alt.Scale(padding=10)),
-                    tooltip=["Quarter", col_rev]
-                )
-                .properties(
-                    height=380,
-                    background="#00D05E",
-                    padding={"top": 10, "left": 10, "right": 10, "bottom": 10}
-                )
-                .configure_view(
-                    fill="#00D05E",
-                    strokeOpacity=0
-                )
-                .configure_axis(
-                    labelColor="#000000",
-                    titleColor="#000000",
-                    gridColor="rgba(0,0,0,0.2)",
-                    domainColor="rgba(0,0,0,0.3)"
-                )
-            )
-
-            st.altair_chart(chart_quarter, use_container_width=True)
-
-            st.markdown(
-            """
-            <div style="
-                background-color:#2F75B5;
-                padding:18px 25px;
-                border-radius:10px;
-                font-size:20px;
-                color:white;
-                margin-top:20px;
-                margin-bottom:10px;
-                text-align:center;
-            ">
-                <b>Sales By Month</b>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-            # Aggregate revenue by month
-            sales_by_month = (
-                df.groupby("Month")[col_rev]
-                .sum()
-                .sort_index()
-            )
-
-            # Altair chart with SAME layout/template
-            chart_month = (
-                alt.Chart(sales_by_month.reset_index())
-                .mark_bar(color="#001F5C", cornerRadiusEnd=6)
-                .encode(
-                    x=alt.X("Month:O", title="Month"),
-                    y=alt.Y(f"{col_rev}:Q", title="Revenue", scale=alt.Scale(padding=10)),
-                    tooltip=["Month", col_rev]
-                )
-                .properties(
-                    height=380,
-                    background="#00D05E",
-                    padding={"top": 10, "left": 10, "right": 10, "bottom": 10}
-                )
-                .configure_view(
-                    fill="#00D05E",
-                    strokeOpacity=0
-                )
-                .configure_axis(
-                    labelColor="#000000",
-                    titleColor="#000000",
-                    gridColor="rgba(0,0,0,0.2)",
-                    domainColor="rgba(0,0,0,0.3)"
-                )
-            )
-
-            st.altair_chart(chart_month, use_container_width=True)
-
-
-
-
-
-    if col_store and col_rev:
-            st.markdown(
-        """
-        <div style="
-            background-color:#2F75B5;
-            padding:18px 25px;
-            border-radius:10px;
-            font-size:20px;
-            color:white;
-            margin-top:20px;
-            margin-bottom:10px;
-            text-align:center;
-        ">
-            <b>Sales By Store</b>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-    # Aggregate revenue by store
-    sales_store = (
-        df.groupby(col_store)[col_rev]
-        .sum()
-        .sort_values(ascending=False)
-    )
-
-    # Altair chart with SAME layout/template
-    chart_store = (
-        alt.Chart(sales_store.reset_index())
-        .mark_bar(color="#001F5C", cornerRadiusEnd=6)
-        .encode(
-            x=alt.X(f"{col_store}:O", title="Store"),
-            y=alt.Y(f"{col_rev}:Q", title="Revenue", scale=alt.Scale(padding=10)),
-            tooltip=[col_store, col_rev]
-        )
-        .properties(
-            height=380,
-            background="#00D05E",
-            padding={"top": 10, "left": 10, "right": 10, "bottom": 10}
-        )
-        .configure_view(
-            fill="#00D05E",
-            strokeOpacity=0
-        )
-        .configure_axis(
-            labelColor="#000000",
-            titleColor="#000000",
-            gridColor="rgba(0,0,0,0.2)",
-            domainColor="rgba(0,0,0,0.3)"
-        )
-    )
-
-    st.altair_chart(chart_store, use_container_width=True)
-
-    if col_channel and col_rev:
-            st.markdown(
-        """
-        <div style="
-            background-color:#2F75B5;
-            padding:18px 25px;
-            border-radius:10px;
-            font-size:20px;
-            color:white;
-            margin-top:20px;
-            margin-bottom:10px;
-            text-align:center;
-        ">
-            <b>Sales By Sales Channels</b>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-    # Aggregate revenue by channel
-    sales_channel = (
-        df.groupby(col_channel)[col_rev]
-        .sum()
-        .sort_values(ascending=False)
-    )
-
-    # Altair chart with SAME layout/template
-    chart_channel = (
-        alt.Chart(sales_channel.reset_index())
-        .mark_bar(color="#001F5C", cornerRadiusEnd=6)
-        .encode(
-            x=alt.X(f"{col_channel}:O", title="Channel"),
-            y=alt.Y(f"{col_rev}:Q", title="Revenue", scale=alt.Scale(padding=10)),
-            tooltip=[col_channel, col_rev]
-        )
-        .properties(
-            height=380,
-            background="#00D05E",
-            padding={"top": 10, "left": 10, "right": 10, "bottom": 10}
-        )
-        .configure_view(
-            fill="#00D05E",
-            strokeOpacity=0
-        )
-        .configure_axis(
-            labelColor="#000000",
-            titleColor="#000000",
-            gridColor="rgba(0,0,0,0.2)",
-            domainColor="rgba(0,0,0,0.3)"
-        )
-    )
-
-    st.altair_chart(chart_channel, use_container_width=True)
-
-
-elif eda_option == "Transfer Effectiveness":
-    st.markdown(
-    """
-    <div style="
-        background-color:#2F75B5;
-        padding:28px;
-        border-radius:12px;
-        color:white;
-        font-size:16px;
-        line-height:1.6;
-        margin-bottom:20px;
-    ">
-
-    <b>What this section does:</b><br><br>
-
-    This analyzes <b>transfer optimization metrics</b> by comparing
-    transfer costs, service level improvements, and efficiency gains.
-
-    It evaluates:
-    <ul>
-        <li>Cost savings from optimized transfers</li>
-        <li>Service level improvements</li>
-        <li>Transfer efficiency across clusters</li>
-    </ul>
-    <br>
-
-    <b>Why this matters:</b>
-
-    Optimized transfers can reduce logistics costs while improving
-    inventory availability. This analysis helps ensure transfers are
-    <b>cost-effective and service-oriented</b>.
-
+    # -- Stock Value by Year --
+    st.markdown("""
+    <div style="background-color:#2F75B5;padding:18px 25px;border-radius:10px;font-size:20px;color:white;margin-top:20px;margin-bottom:10px;text-align:center;">
+        <b>Stock Value by Year</b>
     </div>
-    """,
-    unsafe_allow_html=True
-)
+    """, unsafe_allow_html=True)
 
-    # Column mapping for transfer data
-    transfer_id_col = None
-    transfer_cost_col = None
-    transfer_qty_col = None
-    service_gain_col = None
-    
-    # Find transfer ID column
-    for col in ["shipment_id", "transfer_id", "from_store_id"]:
-        if col in df.columns:
-            transfer_id_col = col
-            break
-
-    # Find transfer cost column
-    for col in ["transfer_cost", "fuel_cost", "shipment_cost"]:
-        if col in df.columns:
-            transfer_cost_col = col
-            break
-
-    # Find transfer quantity column
-    for col in ["transfer_qty", "optimal_transfer_qty", "shipment_quantity"]:
-        if col in df.columns:
-            transfer_qty_col = col
-            break
-
-    # Find service gain column
-    for col in ["service_level_gain_pct", "cost_minimization_pct", "model_confidence_score"]:
-        if col in df.columns:
-            service_gain_col = col
-            break
-
-    if transfer_id_col and transfer_cost_col:
-        base = df[df[transfer_id_col].notna()].copy()
-        agg = {transfer_cost_col: "sum"}
-        if transfer_qty_col:
-            agg[transfer_qty_col] = "sum"
-        if service_gain_col:
-            agg[service_gain_col] = "mean"
-
-        transfer_metrics = base.groupby(transfer_id_col).agg(agg).replace([np.inf, -np.inf], np.nan).dropna(how="all")
-
-        st.markdown(
-            """
-            <div class="summary-grid">
-                <div class="summary-card">
-                    <div class="summary-title">Total Transfer Cost</div>
-                    <div class="summary-value">{}</div>
-                </div>
-                <div class="summary-card">
-                    <div class="summary-title"># Transfers</div>
-                    <div class="summary-value">{}</div>
-                </div>
-                <div class="summary-card">
-                    <div class="summary-title">Avg Service Gain</div>
-                    <div class="summary-value">{}</div>
-                </div>
-            </div>
-            """.format(
-                f"${transfer_metrics[transfer_cost_col].sum():,.2f}",
-                f"{transfer_metrics.shape[0]:,}",
-                f"{transfer_metrics[service_gain_col].mean():.1f}%" if service_gain_col else "NA",
-            ),
-            unsafe_allow_html=True,
+    sv_year = df.groupby("Year")[col_stockval].sum().sort_index()
+    chart_yr = (
+        alt.Chart(sv_year.reset_index())
+        .mark_bar(color=BAR_BLUE, cornerRadiusEnd=6)
+        .encode(
+            x=alt.X("Year:O", title="Year"),
+            y=alt.Y(f"{col_stockval}:Q", title="Total Stock Value", scale=alt.Scale(padding=10)),
+            tooltip=["Year", col_stockval]
         )
+        .properties(height=380, background=GREEN_BG,
+                    padding={"top":10,"left":10,"right":10,"bottom":10})
+        .configure_view(fill=GREEN_BG, strokeOpacity=0)
+        .configure_axis(labelColor="#000000", titleColor="#000000",
+                        gridColor="rgba(0,0,0,0.2)", domainColor="rgba(0,0,0,0.3)")
+    )
+    st.altair_chart(chart_yr, use_container_width=True)
 
-        # Top transfers by cost
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown("#### Top Transfers by Cost")
-            top_transfers = transfer_metrics.sort_values(transfer_cost_col, ascending=False).head(15)
-            st.dataframe(top_transfers, use_container_width=True)
+    # -- Stock Value by Quarter --
+    st.markdown("""
+    <div style="background-color:#2F75B5;padding:18px 25px;border-radius:10px;font-size:20px;color:white;margin-top:20px;margin-bottom:10px;text-align:center;">
+        <b>Stock Value by Quarter</b>
+    </div>
+    """, unsafe_allow_html=True)
 
-        with col2:
-            if service_gain_col and transfer_qty_col:
-                st.markdown("#### Transfer Cost vs Service Gain")
-                fig, ax = plt.subplots(figsize=(8, 4))
-                ax.scatter(transfer_metrics[transfer_cost_col], transfer_metrics[service_gain_col], alpha=0.7)
-                ax.set_xlabel("Transfer Cost")
-                ax.set_ylabel("Service Gain (%)")
-                ax.set_title("Transfer Cost vs Service Gain")
-                ax.grid(True, linestyle="--", alpha=0.3)
-                st.pyplot(fig)
-                plt.close(fig)
-            elif transfer_cost_col and transfer_qty_col:
-                st.markdown("#### Transfer Cost vs Quantity")
-                fig, ax = plt.subplots(figsize=(8, 4))
-                ax.scatter(transfer_metrics[transfer_cost_col], transfer_metrics[transfer_qty_col], alpha=0.7)
-                ax.set_xlabel("Transfer Cost")
-                ax.set_ylabel("Transfer Quantity")
-                ax.set_title("Transfer Cost vs Quantity")
-                ax.grid(True, linestyle="--", alpha=0.3)
-                st.pyplot(fig)
-                plt.close(fig)
-    else:
-        st.info("Transfer columns not available in the dataset.")
+    sv_qtr = df.groupby("Quarter")[col_stockval].sum().sort_index()
+    chart_qtr = (
+        alt.Chart(sv_qtr.reset_index())
+        .mark_bar(color=BAR_BLUE, cornerRadiusEnd=6)
+        .encode(
+            x=alt.X("Quarter:O", title="Quarter"),
+            y=alt.Y(f"{col_stockval}:Q", title="Total Stock Value", scale=alt.Scale(padding=10)),
+            tooltip=["Quarter", col_stockval]
+        )
+        .properties(height=380, background=GREEN_BG,
+                    padding={"top":10,"left":10,"right":10,"bottom":10})
+        .configure_view(fill=GREEN_BG, strokeOpacity=0)
+        .configure_axis(labelColor="#000000", titleColor="#000000",
+                        gridColor="rgba(0,0,0,0.2)", domainColor="rgba(0,0,0,0.3)")
+    )
+    st.altair_chart(chart_qtr, use_container_width=True)
+
+    # -- Stock Value by Month --
+    st.markdown("""
+    <div style="background-color:#2F75B5;padding:18px 25px;border-radius:10px;font-size:20px;color:white;margin-top:20px;margin-bottom:10px;text-align:center;">
+        <b>Stock Value by Month</b>
+    </div>
+    """, unsafe_allow_html=True)
+
+    sv_month = df.groupby("Month")[col_stockval].sum().sort_index()
+    chart_month = (
+        alt.Chart(sv_month.reset_index())
+        .mark_bar(color=BAR_BLUE, cornerRadiusEnd=6)
+        .encode(
+            x=alt.X("Month:O", title="Month"),
+            y=alt.Y(f"{col_stockval}:Q", title="Total Stock Value", scale=alt.Scale(padding=10)),
+            tooltip=["Month", col_stockval]
+        )
+        .properties(height=380, background=GREEN_BG,
+                    padding={"top":10,"left":10,"right":10,"bottom":10})
+        .configure_view(fill=GREEN_BG, strokeOpacity=0)
+        .configure_axis(labelColor="#000000", titleColor="#000000",
+                        gridColor="rgba(0,0,0,0.2)", domainColor="rgba(0,0,0,0.3)")
+    )
+    st.altair_chart(chart_month, use_container_width=True)
+
+    # -- Overstock vs Understock by Region --
+    st.markdown("""
+    <div style="background-color:#2F75B5;padding:18px 25px;border-radius:10px;font-size:20px;color:white;margin-top:20px;margin-bottom:10px;text-align:center;">
+        <b>Overstock vs Understock by Region</b>
+    </div>
+    """, unsafe_allow_html=True)
+
+    reg_inv = df.groupby(col_region).agg(
+        total_overstock=(col_overstock, "sum"),
+        total_understock=(col_understock, "sum")
+    ).sort_values("total_overstock", ascending=False)
+
+    x_reg = np.arange(len(reg_inv))
+    w = 0.35
+    fig_reg, ax_reg = plt.subplots(figsize=(10, 4))
+    fig_reg.patch.set_facecolor(GREEN_BG)
+    ax_reg.set_facecolor(GREEN_BG)
+    ax_reg.bar(x_reg - w/2, reg_inv["total_overstock"], w, label="Overstock", color=BAR_BLUE)
+    ax_reg.bar(x_reg + w/2, reg_inv["total_understock"], w, label="Understock", color="#EF4444")
+    ax_reg.set_xticks(x_reg)
+    ax_reg.set_xticklabels(reg_inv.index.astype(str), rotation=45, ha="right")
+    ax_reg.set_ylabel("Quantity")
+    ax_reg.set_xlabel("Region")
+    ax_reg.legend()
+    ax_reg.grid(axis="y", linestyle="-", color=GRID_GREEN, alpha=0.5)
+    ax_reg.spines["top"].set_visible(False)
+    ax_reg.spines["right"].set_visible(False)
+    st.pyplot(fig_reg)
+    plt.close(fig_reg)
 
 
+# ================================================================
+# EDA – PRODUCT-LEVEL ANALYSIS
+# ================================================================
 elif eda_option == "Product-Level Analysis":
 
     st.markdown(
@@ -3103,698 +1706,168 @@ elif eda_option == "Product-Level Analysis":
         margin-bottom:20px;
     ">
     <b>What this section does:</b>
-    <li>This section analyzes <b>sales performance at the product (SKU) level</li>
+    <li>This section analyzes <b>inventory and supply chain performance at the SKU / product level</b></li>
 
     It focuses on:
     <ul>
-        <li>Top- and bottom-performing products</li>
-        <li>Revenue contribution by product</li>
-        <li>Demand concentration across SKUs</li>
+        <li>Top and bottom-performing products by stock value</li>
+        <li>Demand index vs overstock index per product</li>
+        <li>Inventory turnover and shelf life risk across SKUs</li>
+        <li>Cost price vs MRP margin distribution by category</li>
     </ul><br>
 
     <b>Why this matters:</b>
 
-    Demand forecasting at an aggregate level hides <b>SKU-specific behavior</b>.
-    Some products are fast-moving, others are slow or highly seasonal.<br>
+    Supply chain decisions at an aggregate level hide <b>SKU-specific behavior</b>.
+    Some products are fast-moving, others have long shelf life and accumulate overstock.<br>
 
     <b>Key insights users get:</b>
     <ul>
-        <li>Which products drive the majority of sales</li>
-        <li>Which SKUs may require special forecasting treatment</li>
-        <li>Candidates for product-level demand models</li>
+        <li>Which products drive the majority of stock value</li>
+        <li>Which SKUs have misaligned demand vs supply</li>
+        <li>Candidates for product-level replenishment model optimization</li>
     </ul>
 
     </div>
     """,
     unsafe_allow_html=True
-    )
-    # =========================================================
-    # ENSURE PRODUCT METRICS & TOP PRODUCTS ARE DEFINED
-    # =========================================================
-    
-    # Get safe column mappings
-    safe_cols = get_safe_columns()
-    
-    # Check if required columns exist
-    if not safe_cols['product']:
-        st.error("Product column not found. Available columns: " + ", ".join(df.columns))
-        st.stop()
-    
-    # Use safe column mapping with fallbacks
-    col_product = safe_cols['product']
-    col_qty = safe_cols['quantity'] or 'quantity_sold'  # fallback
-    col_revenue = safe_cols['revenue'] or 'total_sales_amount'  # fallback  
-    col_profit = safe_cols['profit'] or 'profit_value'  # fallback
-    
-    # Only proceed if columns exist
-    available_cols = [col for col in [col_qty, col_revenue, col_profit] if col in df.columns]
-    
-    if len(available_cols) == 0:
-        st.warning("No numeric columns found for aggregation. Skipping product metrics.")
-        product_metrics = None
-    else:
-        # Create aggregation dictionary only with available columns
-        agg_dict = {}
-        if col_qty in df.columns:
-            agg_dict['total_quantity_sold'] = (col_qty, "sum")
-        if col_revenue in df.columns:
-            agg_dict['total_revenue'] = (col_revenue, "sum")
-        if col_profit in df.columns:
-            agg_dict['total_profit'] = (col_profit, "sum")
-        
-        if agg_dict:
-            product_metrics = (
-                df.groupby(col_product)
-                .agg(**agg_dict)
-                .sort_values(list(agg_dict.keys())[0], ascending=False)  # Sort by first available metric
-            )
-        else:
-            product_metrics = None
-
-    # Only proceed with product analysis if we have metrics
-    if product_metrics is not None:
-        TOP_N = 20
-        top_products = product_metrics.head(TOP_N)
-
-        # Products to label in scatter (only if columns exist)
-        label_products = pd.DataFrame()
-        
-        if 'total_quantity_sold' in product_metrics.columns:
-            top_demand = product_metrics.sort_values("total_quantity_sold", ascending=False).head(5)
-            label_products = pd.concat([label_products, top_demand])
-        
-        if 'total_profit' in product_metrics.columns:
-            top_profit = product_metrics.sort_values("total_profit", ascending=False).head(5)
-            label_products = pd.concat([label_products, top_profit])
-        
-        label_products = label_products.drop_duplicates() if not label_products.empty else None
-    else:
-        top_products = pd.DataFrame()
-        label_products = None
-
-
-    # =========================================================
-    # BLUE TITLE BOX (SAME STYLE FOR ALL CHARTS)
-    # =========================================================
-    def blue_title(title):
-        st.markdown(
-            f"""
-            <div style="
-                background-color:#2F75B5;
-                padding:14px;
-                border-radius:8px;
-                font-size:16px;
-                color:white;
-                margin-bottom:8px;
-                text-align:center;
-                font-weight:600;
-            ">
-                {title}
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-    # ================= THEME COLORS (DEFINE ONCE) =================
-    GREEN_BG = "#00D05E"
-    GRID_GREEN = "#3B3B3B"
-
-    BAR_BLUE = "#001F5C"
-
-
-    # =========================================================
-    # ROW 1 — EXISTING TWO PLOTS (LOGIC UNTOUCHED)
-    # =========================================================
-    col1, col2 = st.columns(2)
-
-    # ---------- PLOT 1: Revenue Contribution ----------
-    with col1:
-        blue_title("Revenue Contribution by Product ")
-
-        fig1, ax1 = plt.subplots(figsize=(7, 4))
-
-        # GREEN THEME
-        fig1.patch.set_facecolor(GREEN_BG)
-        ax1.set_facecolor(GREEN_BG)
-        fig1.subplots_adjust(
-    left=0.08,
-    right=0.98,
-    top=0.92,
-    bottom=0.28   # enough for rotated labels
-)
-
-        # Only create chart if we have data and revenue column exists
-        if not top_products.empty and 'total_revenue' in top_products.columns:
-            ax1.bar(
-                top_products.index.astype(str),
-                top_products["total_revenue"],
-                color=BAR_BLUE
-            )
-
-            ax1.set_xlabel("Product ID")
-            ax1.set_ylabel("Total Revenue")
-            ax1.tick_params(axis="x", rotation=45)
-            ax1.grid(axis="y", linestyle="-", color=GRID_GREEN, alpha=0.5)
-
-            ax1.spines["top"].set_visible(False)
-            ax1.spines["right"].set_visible(False)
-            
-            st.pyplot(fig1)
-            plt.close(fig1)
-        else:
-            st.warning("No revenue data available for product revenue chart")
-
-
-    # ---------- PLOT 2: Demand vs Profitability ----------
-    with col2:
-        blue_title("Product Demand vs Profitability")
-
-        fig2, ax2 = plt.subplots(figsize=(7, 4))
-        # 🔑 GREEN THEME
-        fig2.patch.set_facecolor(GREEN_BG)
-        ax2.set_facecolor(GREEN_BG)
-        fig2.subplots_adjust(
-    left=0.08,
-    right=0.98,
-    top=0.92,
-    bottom=0.13   # enough for rotated labels
-)
-        # Only create chart if we have data and required columns exist
-        if (product_metrics is not None and 
-            not product_metrics.empty and 
-            'total_quantity_sold' in product_metrics.columns and 
-            'total_profit' in product_metrics.columns):
-            
-            ax2.scatter(
-                product_metrics["total_quantity_sold"],
-                product_metrics["total_profit"],
-                alpha=0.6,
-                color=BAR_BLUE
-            )
-
-            ax2.set_xlabel("Total Quantity Sold (Demand)")
-            ax2.set_ylabel("Total Profit")
-            ax2.grid(True, linestyle="-", color=GRID_GREEN, alpha=0.5)
-
-            # Add labels for top products if available
-            if label_products is not None and not label_products.empty:
-                for pid, row in label_products.iterrows():
-                    if pid in product_metrics.index:
-                        ax2.annotate(
-                            pid,
-                            (product_metrics.loc[pid, "total_quantity_sold"], 
-                             product_metrics.loc[pid, "total_profit"]),
-                            xytext=(5, 5),
-                            textcoords="offset points",
-                            fontsize=8,
-                            alpha=0.9
-                        )
-
-            ax2.spines["top"].set_visible(False)
-            ax2.spines["right"].set_visible(False)
-            
-            st.pyplot(fig2)
-            plt.close(fig2)
-        else:
-            st.warning("⚠️ No quantity or profit data available for demand vs profitability chart")
-
-
-    # =========================================================
-    # ROW 2 — TWO NEW 2D ANALYSES (SAME DESIGN)
-    # =========================================================
-    col3, col4 = st.columns(2)
-
-    # ---------- PLOT 3: Revenue vs Discount ----------
-    with col3:
-        blue_title("Revenue vs Discount by Product ")
-
-        product_metrics_viz = (
-            df.groupby("product_id")
-            .agg(
-                total_revenue=("total_sales_amount", "sum"),
-                total_discount=("discount_applied", "sum")
-            )
-            .sort_values("total_revenue", ascending=False)
-            .head(20)
-        )
-
-        fig3, ax3 = plt.subplots(figsize=(7, 4))
-
-        # 🔑 GREEN THEME
-        fig3.patch.set_facecolor(GREEN_BG)
-        ax3.set_facecolor(GREEN_BG)
-        fig3.subplots_adjust(
-    left=0.08,
-    right=0.98,
-    top=0.92,
-    bottom=0.28   # enough for rotated labels
-)
-
-        x = np.arange(len(product_metrics_viz))
-        width = 0.35
-
-        ax3.bar(
-            x - width/2,
-            product_metrics_viz["total_revenue"],
-            width,
-            label="Revenue",
-            color=BAR_BLUE
-        )
-
-        ax3.bar(
-            x + width/2,
-            product_metrics_viz["total_discount"],
-            width,
-            label="Discount Given",
-            color="#F59E0B"
-        )
-
-        ax3.set_xlabel("Product ID")
-        ax3.set_xticks(x)
-        ax3.set_xticklabels(
-            product_metrics_viz.index.astype(str),
-            rotation=45,
-            ha="right"
-        )
-
-        ax3.set_ylabel("Amount")
-        ax3.legend()
-        ax3.grid(axis="y", linestyle="-", color=GRID_GREEN, alpha=0.5)
-
-        ax3.spines["top"].set_visible(False)
-        ax3.spines["right"].set_visible(False)
-
-        plt.tight_layout()
-        st.pyplot(fig3)
-        plt.close(fig3)
-
-
-    # ---------- PLOT 4: Stock Sold vs Stock Damaged ----------
-    with col4:
-        blue_title("Stock Sold vs Stock Damaged ")
-
-        stock_metrics = (
-            df.groupby("product_id")
-            .agg(
-                stock_sold=("stock_sold_qty", "sum"),
-                stock_damaged=("stock_damaged_qty", "sum")
-            )
-            .sort_values("stock_sold", ascending=False)
-            .head(20)
-        )
-
-        fig4, ax4 = plt.subplots(figsize=(7, 4))
-
-        # 🔑 GREEN THEME
-        fig4.patch.set_facecolor(GREEN_BG)
-        ax4.set_facecolor(GREEN_BG)
-        fig4.subplots_adjust(
-    left=0.08,
-    right=0.98,
-    top=0.92,
-    bottom=0.17  # enough for rotated labels
-)
-
-        x = np.arange(len(stock_metrics))
-        width = 0.35
-
-        ax4.bar(
-            x - width/2,
-            stock_metrics["stock_sold"],
-            width,
-            label="Stock Sold",
-            color=BAR_BLUE
-        )
-
-        ax4.bar(
-            x + width/2,
-            stock_metrics["stock_damaged"],
-            width,
-            label="Stock Damaged",
-            color="#EF4444"
-        )
-
-        ax4.set_xlabel("Product ID")
-        ax4.set_xticks(x)
-        ax4.set_xticklabels(
-            stock_metrics.index.astype(str),
-            rotation=45,
-            ha="right"
-        )
-
-        ax4.set_ylabel("Quantity")
-        ax4.legend()
-        ax4.grid(axis="y", linestyle="-", color=GRID_GREEN, alpha=0.5)
-
-        ax4.spines["top"].set_visible(False)
-        ax4.spines["right"].set_visible(False)
-
-        st.pyplot(fig4)
-        plt.close(fig4)
-
-
-elif eda_option == "Customer-Level Analysis":
-
-    # =========================================================
-    # INTRO / CONTEXT CARD
-    # =========================================================
-    st.markdown(
-    """
-    <div style="
-        background-color:#2F75B5;
-        padding:28px;
-        border-radius:12px;
-        color:white;
-        font-size:16px;
-        line-height:1.6;
-        margin-bottom:20px;
-    ">
-    <b>What this section does:</b>
-
-    This section analyzes <b>customer behavior and value patterns</b>.
-
-    It focuses on:
-    <ul>
-        <li>Customer spending and purchase frequency</li>
-        <li>Loyalty engagement and retention signals</li>
-        <li>High-value vs low-value customer segments</li>
-    </ul><br>
-
-    <b>Why this matters:</b>
-    <li>Customer demand is not uniform. Some customers are frequent, loyal, and high-value,
-    while others are occasional or price-sensitive.</li><br>
-
-    <b>Key insights users get:</b>
-    <ul>
-        <li>Identification of high-value customers</li>
-        <li>Understanding loyalty effectiveness</li>
-        <li>Signals for churn risk and retention planning</li>
-    </ul>
-
-    </div>
-    """,
-    unsafe_allow_html=True
-    )
-
-    # =========================================================
-    # CUSTOMER METRICS AGGREGATION
-    # =========================================================
-    col_customer = "customer_id"
-
-    customer_metrics = (
-        df.groupby(col_customer)
-        .agg(
-            total_revenue=("total_sales_amount", "sum"),
-            total_purchases=("customer_total_purchases", "max"),
-            total_visits=("customer_total_visits", "max"),
-            avg_purchase_value=("customer_avg_purchase_value", "mean"),
-            loyalty_points_earned=("customer_loyalty_points_earned", "sum"),
-            satisfaction_score=("customer_satisfaction_score", "mean"),
-            days_since_last_purchase=("customer_days_since_last_purchase", "mean")
-        )
     )
 
     TOP_N = 20
-    top_customers = customer_metrics.sort_values(
-        "total_revenue", ascending=False
-    ).head(TOP_N)
 
-    # =========================================================
-    # BLUE TITLE BOX HELPER
-    # =========================================================
-    def blue_title(title):
-        st.markdown(
-            f"""
-            <div style="
-                background-color:#2F75B5;
-                padding:14px;
-                border-radius:8px;
-                font-size:16px;
-                color:white;
-                margin-bottom:8px;
-                text-align:center;
-                font-weight:600;
-            ">
-                {title}
-            </div>
-            """,
-            unsafe_allow_html=True
+    product_metrics = (
+        df.groupby(col_product)
+        .agg(
+            total_stock_value=(col_stockval, "sum"),
+            avg_on_hand=(col_onhand, "mean"),
+            avg_overstock=(col_overstock, "mean"),
+            avg_understock=(col_understock, "mean"),
+            avg_demand_index=(col_demand_index, "mean"),
+            avg_overstock_index=(col_overstock_index, "mean"),
+            avg_turnover=(col_turnover, "mean"),
+            avg_fill_rate=(col_fill_rate, "mean")
         )
-    # ================= THEME COLORS (DEFINE ONCE) =================
-    GREEN_BG = "#00D05E"
-    GRID_GREEN = "#3B3B3B"
-    BAR_BLUE = "#001F5C"
+        .sort_values("total_stock_value", ascending=False)
+    )
 
-    # =========================================================
-    # ROW 1 — CUSTOMER VALUE & FREQUENCY
-    # =========================================================
+    top_products = product_metrics.head(TOP_N)
+    top_demand  = product_metrics.sort_values("avg_demand_index", ascending=False).head(5)
+    top_turnover = product_metrics.sort_values("avg_turnover", ascending=False).head(5)
+    label_products = pd.concat([top_demand, top_turnover]).drop_duplicates()
+
     col1, col2 = st.columns(2)
 
-    # ---------- PLOT 1: Revenue Contribution by Customer ----------
+    # Plot 1: Stock Value by Product
     with col1:
-        blue_title("Revenue Contribution by Customer ")
-
+        blue_title("Stock Value Contribution by Product")
         fig1, ax1 = plt.subplots(figsize=(7, 4))
-
-        # 🔑 GREEN THEME
         fig1.patch.set_facecolor(GREEN_BG)
         ax1.set_facecolor(GREEN_BG)
-        fig1.subplots_adjust(
-            left=0.08,
-            right=0.98,
-            top=0.92,
-            bottom=0.28
-        )
-
-        x = np.arange(len(top_customers))
-
-        ax1.bar(
-            x,
-            top_customers["total_revenue"],
-            color=BAR_BLUE
-        )
-
-        ax1.set_xlabel("Customer ID")
-        ax1.set_ylabel("Total Revenue")
-
-        ax1.set_xticks(x)
-        ax1.set_xticklabels(
-            top_customers.index.astype(str),
-            rotation=45,
-            ha="right"
-        )
-
+        fig1.subplots_adjust(left=0.08, right=0.98, top=0.92, bottom=0.32)
+        ax1.bar(top_products.index.astype(str), top_products["total_stock_value"], color=BAR_BLUE)
+        ax1.set_xlabel("Product ID")
+        ax1.set_ylabel("Total Stock Value")
+        ax1.tick_params(axis="x", rotation=45)
         ax1.grid(axis="y", linestyle="-", color=GRID_GREEN, alpha=0.5)
         ax1.spines["top"].set_visible(False)
         ax1.spines["right"].set_visible(False)
-
         st.pyplot(fig1)
         plt.close(fig1)
 
-
-    # ---------- PLOT 2: Avg Order Value vs Discount Dependency ----------
+    # Plot 2: Demand Index vs Overstock Index
     with col2:
-        blue_title("Customer Order Value vs Discount Dependency")
-
-        customer_discount_metrics = (
-            df.groupby("customer_id")
-            .agg(
-                avg_order_value=("avg_order_value", "mean"),
-                avg_discount=("discount_applied", "mean")
-            )
-            .dropna()
-        )
-
-        top_customers = (
-            customer_discount_metrics
-            .sort_values("avg_order_value", ascending=False)
-            .head(20)
-        )
-
-        x = np.arange(len(top_customers))
-        width = 0.35
-
+        blue_title("Product Demand Index vs Overstock Index")
         fig2, ax2 = plt.subplots(figsize=(7, 4))
-
-        # 🔑 GREEN THEME
         fig2.patch.set_facecolor(GREEN_BG)
         ax2.set_facecolor(GREEN_BG)
-        fig2.subplots_adjust(
-            left=0.08,
-            right=0.98,
-            top=0.92,
-            bottom=0.30
+        fig2.subplots_adjust(left=0.08, right=0.98, top=0.92, bottom=0.13)
+        ax2.scatter(
+            product_metrics["avg_demand_index"],
+            product_metrics["avg_overstock_index"],
+            alpha=0.6, color=BAR_BLUE
         )
-
-        ax2.bar(
-            x - width / 2,
-            top_customers["avg_order_value"],
-            width,
-            label="Avg Order Value",
-            color=BAR_BLUE
-        )
-
-        ax2.bar(
-            x + width / 2,
-            top_customers["avg_discount"],
-            width,
-            label="Avg Discount Applied",
-            color="#F59E0B"
-        )
-
-        ax2.set_xticks(x)
-        ax2.set_xticklabels(
-            top_customers.index.astype(str),
-            rotation=45,
-            ha="right"
-        )
-
-        ax2.set_ylabel("Amount")
-        ax2.set_xlabel("Customer ID")
-        ax2.legend()
-        ax2.grid(axis="y", linestyle="-", color=GRID_GREEN, alpha=0.5)
-
+        ax2.set_xlabel("Avg Demand Index")
+        ax2.set_ylabel("Avg Overstock Index")
+        ax2.grid(True, linestyle="-", color=GRID_GREEN, alpha=0.5)
+        for pid, row in label_products.iterrows():
+            ax2.annotate(pid, (row["avg_demand_index"], row["avg_overstock_index"]),
+                         xytext=(5, 5), textcoords="offset points", fontsize=8, alpha=0.9)
         ax2.spines["top"].set_visible(False)
         ax2.spines["right"].set_visible(False)
-
         st.pyplot(fig2)
         plt.close(fig2)
 
-
-    # =========================================================
-    # ROW 2 — LOYALTY & RETENTION SIGNALS
-    # =========================================================
     col3, col4 = st.columns(2)
 
-    # ---------- PLOT 3: Revenue vs Loyalty Contribution (%) ----------
+    # Plot 3: Inventory Turnover vs Fill Rate
     with col3:
-        blue_title("Revenue vs Loyalty Contribution (%)")
-
-        top_loyal_customers = (
-            customer_metrics
-            .sort_values("total_revenue", ascending=False)
+        blue_title("Inventory Turnover vs Fill Rate by Product")
+        product_tv = (
+            df.groupby(col_product)
+            .agg(
+                avg_turnover=(col_turnover, "mean"),
+                avg_fill_rate=(col_fill_rate, "mean")
+            )
+            .sort_values("avg_turnover", ascending=False)
             .head(20)
-            .copy()
         )
-
-        top_loyal_customers["revenue_pct"] = (
-            top_loyal_customers["total_revenue"]
-            / top_loyal_customers["total_revenue"].sum()
-        ) * 100
-
-        top_loyal_customers["loyalty_pct"] = (
-            top_loyal_customers["loyalty_points_earned"]
-            / top_loyal_customers["loyalty_points_earned"].sum()
-        ) * 100
-
+        x_tv = np.arange(len(product_tv))
+        w_tv = 0.35
         fig3, ax3 = plt.subplots(figsize=(7, 4))
-
-        # 🔑 GREEN THEME
         fig3.patch.set_facecolor(GREEN_BG)
         ax3.set_facecolor(GREEN_BG)
-        fig3.subplots_adjust(
-            left=0.08,
-            right=0.98,
-            top=0.92,
-            bottom=0.28
-        )
-
-        x = np.arange(len(top_loyal_customers))
-        width = 0.35
-
-        ax3.bar(
-            x - width / 2,
-            top_loyal_customers["revenue_pct"],
-            width,
-            label="Revenue Contribution (%)",
-            color=BAR_BLUE
-        )
-
-        ax3.bar(
-            x + width / 2,
-            top_loyal_customers["loyalty_pct"],
-            width,
-            label="Loyalty Contribution (%)",
-            color="#F59E0B"
-        )
-
-        ax3.set_xticks(x)
-        ax3.set_xticklabels(
-            top_loyal_customers.index.astype(str),
-            rotation=45,
-            ha="right"
-        )
-
-        ax3.set_xlabel("Customer ID")
-        ax3.set_ylabel("Percentage Contribution (%)")
-        ax3.legend()
+        fig3.subplots_adjust(left=0.08, right=0.98, top=0.92, bottom=0.32)
+        ax3.bar(x_tv - w_tv/2, product_tv["avg_turnover"], w_tv, label="Avg Turnover", color=BAR_BLUE)
+        ax3_r = ax3.twinx()
+        ax3_r.bar(x_tv + w_tv/2, product_tv["avg_fill_rate"], w_tv, label="Avg Fill Rate %", color="#F59E0B")
+        ax3.set_xticks(x_tv)
+        ax3.set_xticklabels(product_tv.index.astype(str), rotation=45, ha="right", fontsize=7)
+        ax3.set_ylabel("Inventory Turnover")
+        ax3_r.set_ylabel("Fill Rate (%)")
+        h1, l1 = ax3.get_legend_handles_labels()
+        h2, l2 = ax3_r.get_legend_handles_labels()
+        ax3.legend(h1 + h2, l1 + l2, loc="upper right", fontsize=8)
         ax3.grid(axis="y", linestyle="-", color=GRID_GREEN, alpha=0.5)
-
         ax3.spines["top"].set_visible(False)
         ax3.spines["right"].set_visible(False)
-
         st.pyplot(fig3)
         plt.close(fig3)
 
-
-    # ---------- PLOT 4: Customer Satisfaction vs Recency ----------
+    # Plot 4: Cost Price vs MRP by Category
     with col4:
-        blue_title("Customer Satisfaction vs Recency")
-
-        customer_metrics["recency_bucket"] = pd.cut(
-            customer_metrics["days_since_last_purchase"],
-            bins=[0, 30, 90, 180, 365],
-            labels=["0–30 Days", "31–90 Days", "91–180 Days", "181–365 Days"]
-        )
-
-        recency_summary = (
-            customer_metrics
-            .groupby("recency_bucket", observed=True)
+        blue_title("Cost Price vs MRP by Category")
+        cat_pricing = (
+            df.groupby(col_category)
             .agg(
-                avg_satisfaction=("satisfaction_score", "mean"),
-                customer_count=("satisfaction_score", "count")
+                avg_cost_price=(col_cost_price, "mean"),
+                avg_mrp=(col_mrp, "mean")
             )
+            .sort_values("avg_mrp", ascending=False)
         )
-
+        x_cp = np.arange(len(cat_pricing))
+        w_cp = 0.35
         fig4, ax4 = plt.subplots(figsize=(7, 4))
-
-        # 🔑 GREEN THEME
         fig4.patch.set_facecolor(GREEN_BG)
         ax4.set_facecolor(GREEN_BG)
-        fig4.subplots_adjust(
-            left=0.10,
-            right=0.98,
-            top=0.92,
-            bottom=0.22
-        )
-
-        bars = ax4.bar(
-            recency_summary.index.astype(str),
-            recency_summary["avg_satisfaction"],
-            color=BAR_BLUE
-        )
-
-        ax4.set_xlabel("Days Since Last Purchase")
-        ax4.set_ylabel("Average Customer Satisfaction")
-        ax4.set_ylim(0, 5)
+        fig4.subplots_adjust(left=0.08, right=0.98, top=0.92, bottom=0.17)
+        ax4.bar(x_cp - w_cp/2, cat_pricing["avg_cost_price"], w_cp, label="Avg Cost Price", color=BAR_BLUE)
+        ax4.bar(x_cp + w_cp/2, cat_pricing["avg_mrp"], w_cp, label="Avg MRP", color="#F59E0B")
+        ax4.set_xticks(x_cp)
+        ax4.set_xticklabels(cat_pricing.index.astype(str), rotation=45, ha="right")
+        ax4.set_ylabel("Price (₹)")
+        ax4.set_xlabel("Category")
+        ax4.legend()
         ax4.grid(axis="y", linestyle="-", color=GRID_GREEN, alpha=0.5)
-
         ax4.spines["top"].set_visible(False)
         ax4.spines["right"].set_visible(False)
-
-        # ---- Add customer count labels ----
-        for bar, count in zip(bars, recency_summary["customer_count"]):
-            ax4.text(
-                bar.get_x() + bar.get_width() / 2,
-                bar.get_height() + 0.05,
-                f"{count} customers",
-                ha="center",
-                fontsize=9
-            )
-
         st.pyplot(fig4)
         plt.close(fig4)
 
-elif eda_option == "Store-Level Analysis":
+
+# ================================================================
+# EDA – STORE & REGIONAL ANALYSIS
+# ================================================================
+elif eda_option == "Store & Regional Analysis":
 
     st.markdown(
     """
@@ -3810,25 +1883,26 @@ elif eda_option == "Store-Level Analysis":
 
     <b>What this section does:</b>
 
-    This examines how <b>sales vary across stores or locations</b>.
+    This examines how <b>inventory health varies across stores, regions, zones, and store types</b>.
 
     It evaluates:
     <ul>
-        <li>Store-wise revenue and volume</li>
-        <li>Performance comparison across regions</li>
-        <li>High-demand vs low-demand stores</li>
+        <li>Store-wise stock value and inventory levels</li>
+        <li>Performance comparison across regions and zones</li>
+        <li>High-risk vs low-risk stores for stockout and overstock</li>
     </ul><br>
 
     <b>Why this matters:</b>
 
-    Forecasting accuracy improves when <b>store heterogeneity</b> is understood.<br>
-    Not all stores behave the same, even for the same products.<br><br>
+    Inventory optimization accuracy improves when <b>store heterogeneity</b> is understood.<br>
+    Not all stores carry the same product mix, face the same demand patterns,
+    or have the same fill rate targets.<br><br>
 
     <b>Key insights users get:</b>
     <ul>
-        <li>Store demand clusters</li>
-        <li>Regional sales disparities</li>
-        <li>Inputs for store-level or cluster-based forecasting</li>
+        <li>Store and regional inventory demand clusters</li>
+        <li>Regional fill rate and stockout disparities</li>
+        <li>Inputs for store-level or region-level inventory optimization models</li>
     </ul>
 
     </div>
@@ -3836,67 +1910,27 @@ elif eda_option == "Store-Level Analysis":
     unsafe_allow_html=True
 )
 
-    # =========================================================
-    # BLUE TITLE BOX
-    # =========================================================
-    def blue_title(title):
-        st.markdown(
-            f"""
-            <div style="
-                background-color:#2F75B5;
-                padding:14px;
-                border-radius:8px;
-                font-size:16px;
-                color:white;
-                margin-bottom:8px;
-                text-align:center;
-                font-weight:600;
-            ">
-                {title}
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-    # =========================
-    # COLUMN MAPPING
-    # =========================
-    col_store   = "store_id"
-    col_product = "product_id"
-    col_qty     = "quantity_sold"
-    col_revenue = "total_sales_amount"
-    col_returns = "returns_quantity_returned"
-
-    # =========================
-    # PARAMETERS
-    # =========================
     TOP_STORES   = 20
     TOP_PRODUCTS = 20
 
-    # =========================
-    # TOP STORES BY REVENUE
-    # =========================
     top_stores = (
-        df.groupby(col_store)[col_revenue]
+        df.groupby(col_store)[col_stockval]
         .sum()
         .sort_values(ascending=False)
         .head(TOP_STORES)
         .index
     )
 
-    # =========================
-    # STORE × PRODUCT QUANTITY
-    # =========================
     store_product_qty = (
         df[df[col_store].isin(top_stores)]
-        .groupby([col_store, col_product])[col_qty]
+        .groupby([col_store, col_product])[col_onhand]
         .sum()
         .reset_index()
     )
 
     store_top_products = (
         store_product_qty
-        .sort_values([col_store, col_qty], ascending=[True, False])
+        .sort_values([col_store, col_onhand], ascending=[True, False])
         .groupby(col_store)
         .head(TOP_PRODUCTS)
     )
@@ -3904,68 +1938,46 @@ elif eda_option == "Store-Level Analysis":
     pivot_qty = store_top_products.pivot_table(
         index=col_store,
         columns=col_product,
-        values=col_qty,
+        values=col_onhand,
         fill_value=0
     )
-    # ================= THEME COLORS (DEFINE ONCE) =================
-    GREEN_BG = "#00D05E"
-    GRID_GREEN = "#3B3B3B"
 
-    BAR_BLUE = "#001F5C"
-
-    # =========================================================
-    # ROW 1 — EXISTING PLOTS (THEMED ONLY)
-    # =========================================================
     col1, col2 = st.columns(2)
 
-    # ---------- PLOT 1: Revenue Concentration Across Stores ----------
+    # Plot 1: Stock Value Concentration by Store
     with col1:
-        blue_title("Revenue Concentration Across Stores")
+        blue_title("Stock Value Concentration Across Stores")
 
-        store_revenue = (
-            df.groupby(col_store)[col_revenue]
+        store_sv = (
+            df.groupby(col_store)[col_stockval]
             .sum()
             .loc[top_stores]
         )
 
         fig1, ax1 = plt.subplots(figsize=(7, 4))
-
-        # 🔑 GREEN THEME
         fig1.patch.set_facecolor(GREEN_BG)
         ax1.set_facecolor(GREEN_BG)
         fig1.subplots_adjust(left=0.08, right=0.98, top=0.92, bottom=0.16)
-
-        ax1.bar(
-            store_revenue.index.astype(str),
-            store_revenue.values,
-            color=BAR_BLUE
-        )
-
+        ax1.bar(store_sv.index.astype(str), store_sv.values, color=BAR_BLUE)
         ax1.set_xlabel("Store ID")
-        ax1.set_ylabel("Total Revenue")
+        ax1.set_ylabel("Total Stock Value")
         ax1.tick_params(axis="x", rotation=45)
         ax1.grid(axis="y", linestyle="-", color=GRID_GREEN, alpha=0.5)
-
         ax1.spines["top"].set_visible(False)
         ax1.spines["right"].set_visible(False)
-
         st.pyplot(fig1)
         plt.close(fig1)
 
-
-    # ---------- PLOT 2: Store-wise Product Mix ----------
+    # Plot 2: Store-wise Product Mix (On-Hand Qty)
     with col2:
-        blue_title("Store-wise Product Mix (Quantity Sold)")
+        blue_title("Store-wise Product Mix (On-Hand Quantity)")
 
         fig2, ax2 = plt.subplots(figsize=(7, 4))
-
-        # 🔑 GREEN THEME
         fig2.patch.set_facecolor(GREEN_BG)
         ax2.set_facecolor(GREEN_BG)
         fig2.subplots_adjust(left=0.08, right=0.78, top=0.92, bottom=0.25)
 
         bottom = np.zeros(len(pivot_qty))
-
         for product in pivot_qty.columns:
             ax2.bar(
                 pivot_qty.index.astype(str),
@@ -3977,155 +1989,101 @@ elif eda_option == "Store-Level Analysis":
             bottom += pivot_qty[product].values
 
         ax2.set_xlabel("Store ID")
-        ax2.set_ylabel("Quantity Sold")
+        ax2.set_ylabel("On-Hand Quantity")
         ax2.tick_params(axis="x", rotation=45)
-
         for label in ax2.get_xticklabels():
             label.set_ha("right")
-
         ax2.grid(axis="y", linestyle="-", color=GRID_GREEN, alpha=0.5)
-
-        ax2.legend(
-            title="Product ID",
-            bbox_to_anchor=(1.02, 1),
-            loc="upper left",
-            fontsize=8
-        )
-
+        ax2.legend(title="Product ID", bbox_to_anchor=(1.02, 1), loc="upper left", fontsize=8)
         ax2.spines["top"].set_visible(False)
         ax2.spines["right"].set_visible(False)
-
         st.pyplot(fig2)
         plt.close(fig2)
 
-
-    # =========================================================
-    # ROW 2 — NEW 2D BAR PLOTS (THEMED)
-    # =========================================================
     col3, col4 = st.columns(2)
 
-    # ---------- PLOT 3: Store Sales vs Returned Quantity ----------
+    # Plot 3: Store Fill Rate vs Stockout Rate
     with col3:
-        blue_title("Store Sales vs Returned Quantity")
+        blue_title("Store Fill Rate vs Stockout Rate")
 
-        store_returns = (
+        store_rates = (
             df.groupby(col_store)
             .agg(
-                total_sales=(col_qty, "sum"),
-                total_returns=(col_returns, "sum")
+                avg_fill_rate=(col_fill_rate, "mean"),
+                avg_stockout=(col_stockout, "mean")
             )
             .loc[top_stores]
         )
 
-        x = np.arange(len(store_returns))
-        width = 0.35
+        x_sr = np.arange(len(store_rates))
+        w_sr = 0.35
 
         fig3, ax3 = plt.subplots(figsize=(7, 4))
-
-        # 🔑 GREEN THEME
         fig3.patch.set_facecolor(GREEN_BG)
         ax3.set_facecolor(GREEN_BG)
         fig3.subplots_adjust(left=0.08, right=0.98, top=0.92, bottom=0.28)
 
-        ax3.bar(
-            x - width / 2,
-            store_returns["total_sales"],
-            width,
-            label="Units Sold",
-            color=BAR_BLUE
-        )
-
-        ax3.bar(
-            x + width / 2,
-            store_returns["total_returns"],
-            width,
-            label="Returned Units",
-            color="#EF4444"
-        )
-
-        ax3.set_xticks(x)
-        ax3.set_xticklabels(store_returns.index.astype(str), rotation=45, ha="right")
-        ax3.set_ylabel("Quantity")
+        ax3.bar(x_sr - w_sr/2, store_rates["avg_fill_rate"], w_sr, label="Fill Rate %", color=BAR_BLUE)
+        ax3.bar(x_sr + w_sr/2, store_rates["avg_stockout"], w_sr, label="Stockout %", color="#EF4444")
+        ax3.set_xticks(x_sr)
+        ax3.set_xticklabels(store_rates.index.astype(str), rotation=45, ha="right")
+        ax3.set_ylabel("Percentage (%)")
         ax3.set_xlabel("Store ID")
         ax3.legend()
         ax3.grid(axis="y", linestyle="-", color=GRID_GREEN, alpha=0.5)
-
         ax3.spines["top"].set_visible(False)
         ax3.spines["right"].set_visible(False)
-
         st.pyplot(fig3)
         plt.close(fig3)
 
-
-    # ---------- PLOT 4: Units Sold vs Revenue ----------
+    # Plot 4: On-Hand vs Stock Value by Store
     with col4:
-        blue_title("Units Sold vs Revenue")
+        blue_title("On-Hand Quantity vs Stock Value by Store")
 
-        store_efficiency = (
+        store_eff = (
             df.groupby(col_store)
             .agg(
-                total_units_sold=(col_qty, "sum"),
-                total_revenue=(col_revenue, "sum")
+                total_on_hand=(col_onhand, "sum"),
+                total_stock_value=(col_stockval, "sum")
             )
             .loc[top_stores]
         )
 
-        x = np.arange(len(store_efficiency))
-        width = 0.35
+        x_eff = np.arange(len(store_eff))
+        w_eff = 0.35
 
-        fig4, ax1 = plt.subplots(figsize=(7, 4))
-
-        # 🔑 GREEN THEME
+        fig4, ax4a = plt.subplots(figsize=(7, 4))
         fig4.patch.set_facecolor(GREEN_BG)
-        ax1.set_facecolor(GREEN_BG)
+        ax4a.set_facecolor(GREEN_BG)
         fig4.subplots_adjust(left=0.10, right=0.90, top=0.92, bottom=0.26)
 
-        # Units Sold — LEFT AXIS
-        ax1.bar(
-            x - width / 2,
-            store_efficiency["total_units_sold"],
-            width,
-            label="Units Sold",
-            color=BAR_BLUE
-        )
-        ax1.set_ylabel("Units Sold")
+        ax4a.bar(x_eff - w_eff/2, store_eff["total_on_hand"], w_eff, label="On-Hand Qty", color=BAR_BLUE)
+        ax4a.set_ylabel("On-Hand Quantity")
 
-        # Revenue — RIGHT AXIS
-        ax2 = ax1.twinx()
-        ax2.bar(
-            x + width / 2,
-            store_efficiency["total_revenue"],
-            width,
-            label="Revenue",
-            color="#F59E0B"
-        )
-        ax2.set_ylabel("Revenue")
+        ax4b = ax4a.twinx()
+        ax4b.bar(x_eff + w_eff/2, store_eff["total_stock_value"], w_eff, label="Stock Value", color="#F59E0B")
+        ax4b.set_ylabel("Stock Value (₹)")
 
-        ax1.set_xticks(x)
-        ax1.set_xticklabels(
-            store_efficiency.index.astype(str),
-            rotation=45,
-            ha="right"
-        )
+        ax4a.set_xticks(x_eff)
+        ax4a.set_xticklabels(store_eff.index.astype(str), rotation=45, ha="right")
+        ax4a.set_xlabel("Store ID")
 
-        # Combined legend
-        h1, l1 = ax1.get_legend_handles_labels()
-        h2, l2 = ax2.get_legend_handles_labels()
-        ax1.legend(h1 + h2, l1 + l2, loc="upper right")
+        h1, l1 = ax4a.get_legend_handles_labels()
+        h2, l2 = ax4b.get_legend_handles_labels()
+        ax4a.legend(h1 + h2, l1 + l2, loc="upper right")
 
-        ax1.set_xlabel("Store ID")
-        ax1.grid(axis="y", linestyle="-", color=GRID_GREEN, alpha=0.5)
-
-        ax1.spines["top"].set_visible(False)
-        ax1.spines["right"].set_visible(False)
-        ax2.spines["top"].set_visible(False)
-
+        ax4a.grid(axis="y", linestyle="-", color=GRID_GREEN, alpha=0.5)
+        ax4a.spines["top"].set_visible(False)
+        ax4a.spines["right"].set_visible(False)
+        ax4b.spines["top"].set_visible(False)
         st.pyplot(fig4)
         plt.close(fig4)
 
 
-
-elif eda_option == "Sales Channel Analysis":
+# ================================================================
+# EDA – SHIPMENT & ROUTING ANALYSIS
+# ================================================================
+elif eda_option == "Shipment & Routing Analysis":
 
     st.markdown(
     """
@@ -4141,312 +2099,152 @@ elif eda_option == "Sales Channel Analysis":
 
     <b>What this section does:</b><br><br>
 
-    This provides a <b>high-level view of overall sales performance</b> across time,
-    products, and customers.
-
-
-    It evaluates:
+    This provides a <b>high-level view of logistics performance</b> across shipments,
+    routes, and vehicles. It evaluates:
     <ul>
-        <li>Total sales revenue and volume</li>
-        <li>Sales trends over time</li>
-        <li>Overall demand patterns</li>
+        <li>Delivery time distribution and outliers</li>
+        <li>Fuel cost patterns by route</li>
+        <li>Route efficiency scores across the network</li>
+        <li>Distance vs travel time relationships</li>
     </ul>
-
 
     <b>Why this matters:</b>
 
-    Understanding overall sales behavior helps identify
-    <b>growth trends, seasonality, and demand fluctuations</b>.
-    It establishes a baseline before deeper analysis.
-
+    Understanding logistics behavior helps identify
+    <b>inefficient routes, high-cost corridors, and delivery delays</b>.
+    It establishes a routing baseline before deeper optimization.
 
     <b>Key insights users get:</b>
     <ul>
-        <li>Overall business performance trends</li>
-        <li>Periods of high and low sales activity</li>
-        <li>Inputs for forecasting and planning</li>
+        <li>Which routes consistently underperform on efficiency</li>
+        <li>Delivery time vs fuel cost trade-offs</li>
+        <li>Inputs for route optimization and vehicle assignment models</li>
     </ul>
 
     </div>
     """,
     unsafe_allow_html=True
 )
-    
-    # =========================================================
-    # BLUE TITLE BOX
-    # =========================================================
-    def blue_title(title):
-        st.markdown(
-            f"""
-            <div style="
-                background-color:#2F75B5;
-                padding:14px;
-                border-radius:8px;
-                font-size:16px;
-                color:white;
-                margin-bottom:8px;
-                text-align:center;
-                font-weight:600;
-            ">
-                {title}
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
 
-    # =========================
-    # COLUMN MAPPING
-    # =========================
-    col_channel = "sales_channel_id"
-    col_revenue = "total_sales_amount"
-    col_aov     = "avg_order_value"
-    col_qty     = "quantity_sold"
+    avg_delivery  = df[col_delivery].mean()
+    avg_fuel      = df[col_fuel].mean()
+    avg_eff       = df[col_efficiency].mean()
+    avg_dist      = df[col_distance].mean()
 
-    # =========================
-    # PARAMETERS
-    # =========================
-    TOP_CHANNELS = 15
+    st.markdown(f"""
+    <div class="summary-grid">
+        <div class="summary-card"><div class="summary-title">Avg Delivery Time (mins)</div><div class="summary-value">{avg_delivery:.0f}</div></div>
+        <div class="summary-card"><div class="summary-title">Avg Fuel Cost (₹)</div><div class="summary-value">₹{avg_fuel:.2f}</div></div>
+        <div class="summary-card"><div class="summary-title">Avg Route Efficiency Score</div><div class="summary-value">{avg_eff:.3f}</div></div>
+        <div class="summary-card"><div class="summary-title">Avg Distance (km)</div><div class="summary-value">{avg_dist:.1f} km</div></div>
+    </div>
+    """, unsafe_allow_html=True)
 
-    # =========================
-    # TOP CHANNELS BY REVENUE
-    # =========================
-    top_channels = (
-        df.groupby(col_channel)[col_revenue]
-        .sum()
-        .sort_values(ascending=False)
-        .head(TOP_CHANNELS)
-        .index
-    )
-    # ================= THEME COLORS (DEFINE ONCE) =================
-    GREEN_BG = "#00D05E"
-    GRID_GREEN = "#3B3B3B"
-
-    BAR_BLUE = "#001F5C"
-
-    # =========================================================
-    # ROW 1 — EXISTING PLOTS (THEMED ONLY)
-    # =========================================================
     col1, col2 = st.columns(2)
 
-    # ---------- PLOT 1: Revenue Contribution (DONUT) ----------
+    # Plot 1: Delivery Time Distribution
     with col1:
-        blue_title("Revenue Contribution by Sales Channel")
-
-        channel_revenue = (
-            df.groupby(col_channel)[col_revenue]
-            .sum()
-            .loc[top_channels]
-        )
-
-        fig1, ax1 = plt.subplots(figsize=(2, 2))
-
-        # 🔑 THEME (IMPORTANT FOR PIE)
+        blue_title("Delivery Time Distribution (mins)")
+        fig1, ax1 = plt.subplots(figsize=(7, 4))
         fig1.patch.set_facecolor(GREEN_BG)
         ax1.set_facecolor(GREEN_BG)
-
-        wedges, texts, autotexts = ax1.pie(
-            channel_revenue.values,
-            labels=channel_revenue.index.astype(str),
-            autopct="%1.1f%%",
-            startangle=90,
-            colors=plt.cm.tab10.colors,
-            wedgeprops={
-                "width": 0.55,
-                "edgecolor": "white"
-            },
-            pctdistance=0.75
-        )
-
-        for t in autotexts:
-            t.set_fontsize(4)
-            t.set_color("black")
-
-        for t in texts:
-            t.set_fontsize(4)
-
-        ax1.set_aspect("equal")
-
-        st.pyplot(fig1)
-        plt.close(fig1)
-
-
-    # ---------- PLOT 2: Average Order Value ----------
-    with col2:
-        blue_title("Average Order Value by Sales Channel")
-
-        aov_values = [
-            df[df[col_channel] == ch][col_aov].mean()
-            for ch in top_channels
-        ]
-
-        fig2, ax2 = plt.subplots(figsize=(7, 5))
-
-        # 🔑 GREEN THEME
-        fig2.patch.set_facecolor(GREEN_BG)
-        ax2.set_facecolor(GREEN_BG)
-        fig2.subplots_adjust(left=0.08, right=0.98, top=0.92, bottom=0.03)
-
-        ax2.scatter(
-            top_channels.astype(str),
-            aov_values,
-            s=90,
-            alpha=0.85,
-            color=BAR_BLUE
-        )
-
-        for x, y in zip(top_channels.astype(str), aov_values):
-            ax2.text(
-                x,
-                y + (max(aov_values) * 0.02),
-                f"{int(y)}",
-                ha="center",
-                va="bottom",
-                fontsize=9,
-                color="black"
-            )
-
-        ax2.set_xlabel("Sales Channel")
-        ax2.set_ylabel("Average Order Value")
-
-        ax2.tick_params(axis="x", rotation=45)
-        for label in ax2.get_xticklabels():
-            label.set_ha("right")
-
-        ax2.grid(axis="y", linestyle="-", color=GRID_GREEN, alpha=0.5)
-        ax2.spines["top"].set_visible(False)
-        ax2.spines["right"].set_visible(False)
-
-        st.pyplot(fig2)
-        plt.close(fig2)
-
-
-    # =========================================================
-    # ROW 2 — NEW 2D BAR PLOTS (THEMED)
-    # =========================================================
-    col3, col4 = st.columns(2)
-
-    # ---------- PLOT 3: Units Sold vs Revenue ----------
-    with col3:
-        blue_title("Units Sold vs Revenue by Sales Channel")
-
-        channel_volume = (
-            df.groupby(col_channel)
-            .agg(
-                total_units_sold=(col_qty, "sum"),
-                total_revenue=(col_revenue, "sum")
-            )
-            .loc[top_channels]
-        )
-
-        x = np.arange(len(channel_volume))
-        width = 0.35
-
-        fig3, ax1 = plt.subplots(figsize=(7, 4))
-
-        # 🔑 GREEN THEME
-        fig3.patch.set_facecolor(GREEN_BG)
-        ax1.set_facecolor(GREEN_BG)
-        fig3.subplots_adjust(left=0.10, right=0.90, top=0.92, bottom=0.28)
-
-        ax1.bar(
-            x - width / 2,
-            channel_volume["total_units_sold"],
-            width,
-            label="Units Sold",
-            color=BAR_BLUE
-        )
-        ax1.set_ylabel("Units Sold")
-
-        ax2 = ax1.twinx()
-        ax2.bar(
-            x + width / 2,
-            channel_volume["total_revenue"],
-            width,
-            label="Revenue",
-            color="#F59E0B"
-        )
-        ax2.set_ylabel("Revenue")
-
-        ax1.set_xticks(x)
-        ax1.set_xticklabels(
-            channel_volume.index.astype(str),
-            rotation=45,
-            ha="right"
-        )
-        ax1.set_xlabel("Sales Channel")
-
-        h1, l1 = ax1.get_legend_handles_labels()
-        h2, l2 = ax2.get_legend_handles_labels()
-        ax1.legend(h1 + h2, l1 + l2, loc="upper right")
-
+        ax1.hist(df[col_delivery].dropna(), bins=30, color=BAR_BLUE, edgecolor="white", alpha=0.9)
+        ax1.set_xlabel("Delivery Time (mins)")
+        ax1.set_ylabel("Frequency")
         ax1.grid(axis="y", linestyle="-", color=GRID_GREEN, alpha=0.5)
         ax1.spines["top"].set_visible(False)
         ax1.spines["right"].set_visible(False)
-        ax2.spines["top"].set_visible(False)
+        st.pyplot(fig1)
+        plt.close(fig1)
 
+    # Plot 2: Fuel Cost vs Route Efficiency Score
+    with col2:
+        blue_title("Fuel Cost vs Route Efficiency Score")
+        fig2, ax2 = plt.subplots(figsize=(7, 4))
+        fig2.patch.set_facecolor(GREEN_BG)
+        ax2.set_facecolor(GREEN_BG)
+        fig2.subplots_adjust(left=0.10, right=0.98, top=0.92, bottom=0.13)
+        ax2.scatter(df[col_fuel], df[col_efficiency], alpha=0.3, color=BAR_BLUE, s=15)
+        ax2.set_xlabel("Fuel Cost (₹)")
+        ax2.set_ylabel("Route Efficiency Score")
+        ax2.grid(True, linestyle="-", color=GRID_GREEN, alpha=0.5)
+        ax2.spines["top"].set_visible(False)
+        ax2.spines["right"].set_visible(False)
+        st.pyplot(fig2)
+        plt.close(fig2)
+
+    col3, col4 = st.columns(2)
+
+    # Plot 3: Top Routes by Avg Efficiency Score
+    with col3:
+        blue_title("Top Routes by Avg Efficiency Score")
+        TOP_ROUTES = 15
+        route_eff = (
+            df.groupby(col_route)[col_efficiency]
+            .mean()
+            .sort_values(ascending=False)
+            .head(TOP_ROUTES)
+        )
+        fig3, ax3 = plt.subplots(figsize=(7, 4))
+        fig3.patch.set_facecolor(GREEN_BG)
+        ax3.set_facecolor(GREEN_BG)
+        fig3.subplots_adjust(left=0.08, right=0.98, top=0.92, bottom=0.32)
+        ax3.bar(route_eff.index.astype(str), route_eff.values, color=BAR_BLUE)
+        ax3.set_xlabel("Route ID")
+        ax3.set_ylabel("Avg Efficiency Score")
+        ax3.tick_params(axis="x", rotation=45)
+        ax3.grid(axis="y", linestyle="-", color=GRID_GREEN, alpha=0.5)
+        ax3.spines["top"].set_visible(False)
+        ax3.spines["right"].set_visible(False)
         st.pyplot(fig3)
         plt.close(fig3)
 
-
-    # ---------- PLOT 4: Revenue vs Profit ----------
+    # Plot 4: Fuel Cost vs Delivery Time (Scatter with Labels)
     with col4:
-        blue_title("Sales Channel Revenue vs Profit")
-
-        channel_finance = (
-            df.groupby(col_channel)
+        blue_title("Fuel Cost vs Delivery Time by Route")
+        route_scatter = (
+            df.groupby(col_route)
             .agg(
-                total_revenue=(col_revenue, "sum"),
-                total_profit=("profit_value", "sum")
+                avg_fuel=(col_fuel, "mean"),
+                avg_delivery=(col_delivery, "mean"),
+                total_shipments=(col_efficiency, "count")
             )
-            .sort_values("total_revenue", ascending=False)
-            .head(15)
+            .sort_values("avg_fuel", ascending=False)
+            .head(20)
         )
-
-        x = np.arange(len(channel_finance))
-        width = 0.35
-
-        fig4, ax4 = plt.subplots(figsize=(8, 4))
-
-        # 🔑 GREEN THEME
+        max_fuel = route_scatter["avg_fuel"].max()
+        fig4, ax4 = plt.subplots(figsize=(7, 4))
         fig4.patch.set_facecolor(GREEN_BG)
         ax4.set_facecolor(GREEN_BG)
-        fig4.subplots_adjust(left=0.08, right=0.98, top=0.92, bottom=0.14)
-
-        ax4.bar(
-            x - width / 2,
-            channel_finance["total_revenue"],
-            width,
-            label="Total Revenue",
-            color=BAR_BLUE
+        fig4.subplots_adjust(left=0.10, right=0.98, top=0.92, bottom=0.17)
+        ax4.scatter(
+            route_scatter["avg_fuel"],
+            route_scatter["avg_delivery"],
+            s=route_scatter["total_shipments"] * 5,
+            alpha=0.75,
+            color=BAR_BLUE,
+            edgecolors="black",
+            linewidth=0.5
         )
-
-        ax4.bar(
-            x + width / 2,
-            channel_finance["total_profit"],
-            width,
-            label="Total Profit",
-            color="#0A6849"
-        )
-
-        ax4.set_xticks(x)
-        ax4.set_xticklabels(
-            channel_finance.index.astype(str),
-            rotation=45,
-            ha="right"
-        )
-
-        ax4.set_xlabel("Sales Channel")
-        ax4.set_ylabel("Amount")
-        ax4.legend()
-        ax4.grid(axis="y", linestyle="-", color=GRID_GREEN, alpha=0.5)
-
+        ax4.plot([0, max_fuel], [0, max_fuel],
+                 linestyle="--", color=GRID_GREEN, alpha=0.6)
+        top_labels_r = route_scatter.sort_values("avg_delivery", ascending=False).head(7)
+        for rid, row in top_labels_r.iterrows():
+            ax4.annotate(rid, (row["avg_fuel"], row["avg_delivery"]),
+                         xytext=(6, 6), textcoords="offset points", fontsize=9)
+        ax4.set_xlabel("Avg Fuel Cost (₹)")
+        ax4.set_ylabel("Avg Delivery Time (mins)")
+        ax4.grid(True, linestyle="-", color=GRID_GREEN, alpha=0.5)
         ax4.spines["top"].set_visible(False)
         ax4.spines["right"].set_visible(False)
-
         st.pyplot(fig4)
         plt.close(fig4)
 
-elif eda_option == "Promotion Effectiveness":
+
+# ================================================================
+# EDA – CLUSTER TRANSFER ANALYSIS
+# ================================================================
+elif eda_option == "Cluster Transfer Analysis":
 
     st.markdown(
     """
@@ -4462,324 +2260,158 @@ elif eda_option == "Promotion Effectiveness":
 
     <b>What this section does:</b><br><br>
 
-    This analyzes how <b>promotions impact sales performance</b> by comparing
-    promotion cost, sales uplift, and profitability.
-
+    This analyzes how <b>cluster-based transfer recommendations</b> perform across the supply network.
     It evaluates:
     <ul>
-        <li>Revenue uplift generated by promotions</li>
-        <li>Promotion cost vs sales impact</li>
-        <li>Effectiveness of individual promotions</li>
+        <li>Optimal transfer quantity vs actual transfer quantity per cluster</li>
+        <li>Cost minimization percentage achieved by each cluster</li>
+        <li>Service level gain from transfer recommendations</li>
+        <li>Model confidence scores across clusters</li>
     </ul>
     <br>
 
     <b>Why this matters:</b>
 
-    Promotions can increase sales but may also reduce margins.
-    This analysis helps ensure promotions are
-    <b>cost-effective and profitable</b>.
+    Cluster-based transfers reduce imbalances between overstock and understock nodes.
+    This analysis identifies <b>which clusters are most efficiently optimized</b>
+    and where model confidence gaps exist.<br>
 
     <b>Key insights users get:</b>
     <ul>
-        <li>High-performing vs underperforming promotions</li>
-        <li>Which promotions should be scaled or stopped</li>
-        <li>Better data-driven promotion planning</li>
+        <li>High-performing vs underperforming clusters</li>
+        <li>Transfer cost efficiency across cluster pairs</li>
+        <li>Which clusters should be prioritized for re-optimization</li>
     </ul>
 
     </div>
     """,
     unsafe_allow_html=True
-    )
+)
 
-        # =========================================================
-    # BLUE TITLE BOX (REUSE SAME FUNCTION)
-    # =========================================================
-    def blue_title(title):
-        st.markdown(
-            f"""
-            <div style="
-                background-color:#2F75B5;
-                padding:14px;
-                border-radius:8px;
-                font-size:16px;
-                color:white;
-                margin-bottom:8px;
-                text-align:center;
-                font-weight:600;
-            ">
-                {title}
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+    TOP_CLUSTERS = 15
 
-    # =========================
-    # COLUMN MAPPING
-    # =========================
-    col_promo   = "promo_transaction_id"
-    col_sales   = "promo_total_sales_amount"
-    col_cost    = "promo_promo_cost"
-    col_uplift  = "promo_promo_uplift_revenue"
-    col_total_sales = "total_sales_amount"
-
-    # =========================
-    # AGGREGATE PROMOTION METRICS (UNCHANGED LOGIC)
-    # =========================
-    promo_metrics = (
-        df[df[col_promo].notna()]
-        .groupby(col_promo)
+    cluster_metrics = (
+        df.groupby(col_cluster_name)
         .agg(
-            promo_total_sales_amount=(col_sales, "sum"),
-            promo_cost=(col_cost, "sum"),
-            uplift_revenue=(col_uplift, "sum")
+            avg_optimal_qty=(col_opt_qty, "mean"),
+            avg_transfer_qty=(col_transfer_qty, "mean"),
+            avg_transfer_cost=(col_transfer_cost, "mean"),
+            avg_cost_min=(col_cost_min, "mean"),
+            avg_service_gain=(col_service_gain, "mean"),
+            avg_confidence=(col_confidence, "mean"),
+            total_shipments=(col_transfer_qty, "count")
         )
+        .sort_values("avg_cost_min", ascending=False)
+        .head(TOP_CLUSTERS)
     )
 
-    promo_metrics["net_uplift"] = (
-        promo_metrics["uplift_revenue"] - promo_metrics["promo_cost"]
-    )
-
-    promo_metrics = (
-        promo_metrics
-        .replace([np.inf, -np.inf], np.nan)
-        .dropna()
-    )
-
-    TOP_N = 20
-    top_promos = (
-        promo_metrics
-        .sort_values("net_uplift", ascending=False)
-        .head(TOP_N)
-    )
-    # ================= THEME COLORS (DEFINE ONCE) =================
-    GREEN_BG = "#00D05E"
-    GRID_GREEN = "#3B3B3B"
-
-    BAR_BLUE = "#001F5C"
-
-    # =========================================================
-    # ROW 1 — EXISTING PLOTS (SAME LOGIC, THEMED)
-    # =========================================================
     col1, col2 = st.columns(2)
 
-    # ---------- PLOT 1: PROMOTION PROFITABILITY ----------
+    # Plot 1: Cluster Profitability (Cost Minimization %)
     with col1:
-        blue_title("Promotion Profitability (Net Uplift Revenue)")
+        blue_title("Cluster Cost Minimization % (Top 15 Clusters)")
+        fig1, ax1 = plt.subplots(figsize=(7, 4))
+        fig1.patch.set_facecolor(GREEN_BG)
+        ax1.set_facecolor(GREEN_BG)
+        fig1.subplots_adjust(left=0.08, right=0.98, top=0.92, bottom=0.28)
+        ax1.bar(cluster_metrics.index.astype(str), cluster_metrics["avg_cost_min"], alpha=0.85, color=BAR_BLUE)
+        ax1.axhline(0, color="black", linewidth=1)
+        ax1.set_xlabel("Cluster Name")
+        ax1.set_ylabel("Avg Cost Minimization %")
+        ax1.tick_params(axis="x", rotation=45)
+        ax1.grid(axis="y", linestyle="-", color=GRID_GREEN, alpha=0.5)
+        ax1.spines["top"].set_visible(False)
+        ax1.spines["right"].set_visible(False)
+        st.pyplot(fig1)
+        plt.close(fig1)
 
-        fig, ax = plt.subplots(figsize=(7, 4))
-
-        # 🔑 THEME
-        fig.patch.set_facecolor(GREEN_BG)
-        ax.set_facecolor(GREEN_BG)
-        fig.subplots_adjust(left=0.08, right=0.98, top=0.92, bottom=0.28)
-
-        ax.bar(
-            top_promos.index.astype(str),
-            top_promos["net_uplift"],
-            alpha=0.85,
-            color=BAR_BLUE
-        )
-
-        ax.axhline(0, color="black", linewidth=1)
-        ax.set_xlabel("Promotion ID")
-        ax.set_ylabel("Net Uplift Revenue")
-        ax.tick_params(axis="x", rotation=45)
-        ax.grid(axis="y", linestyle="-", color=GRID_GREEN, alpha=0.5)
-
-        ax.spines["top"].set_visible(False)
-        ax.spines["right"].set_visible(False)
-
-        st.pyplot(fig)
-        plt.close(fig)
-
-
-    # ---------- PLOT 2: SALES vs COST ----------
+    # Plot 2: Optimal Qty vs Transfer Cost (Scatter)
     with col2:
-        blue_title("Promotion Effectiveness: Sales vs Cost")
-
-        fig, ax = plt.subplots(figsize=(7, 4))
-
-        # 🔑 THEME
-        fig.patch.set_facecolor(GREEN_BG)
-        ax.set_facecolor(GREEN_BG)
-        fig.subplots_adjust(left=0.10, right=0.98, top=0.92, bottom=0.13)
-
-        ax.scatter(
-            top_promos["promo_cost"],
-            top_promos["promo_total_sales_amount"],
-            s=top_promos["promo_total_sales_amount"] / 1500,
+        blue_title("Cluster Effectiveness: Optimal Qty vs Transfer Cost")
+        fig2, ax2 = plt.subplots(figsize=(7, 4))
+        fig2.patch.set_facecolor(GREEN_BG)
+        ax2.set_facecolor(GREEN_BG)
+        fig2.subplots_adjust(left=0.10, right=0.98, top=0.92, bottom=0.13)
+        ax2.scatter(
+            cluster_metrics["avg_transfer_cost"],
+            cluster_metrics["avg_optimal_qty"],
+            s=cluster_metrics["avg_optimal_qty"] / 3,
             alpha=0.75,
             color=BAR_BLUE,
             edgecolors="black",
             linewidth=0.5
         )
+        max_cost_c = cluster_metrics["avg_transfer_cost"].max()
+        ax2.plot([0, max_cost_c], [0, max_cost_c],
+                 linestyle="--", color=GRID_GREEN, alpha=0.6)
+        top_labels_c = cluster_metrics.sort_values("avg_optimal_qty", ascending=False).head(7)
+        for cname, row in top_labels_c.iterrows():
+            ax2.annotate(cname, (row["avg_transfer_cost"], row["avg_optimal_qty"]),
+                         xytext=(6, 6), textcoords="offset points", fontsize=9)
+        ax2.set_xlabel("Avg Transfer Cost (₹)")
+        ax2.set_ylabel("Avg Optimal Transfer Qty")
+        ax2.grid(True, linestyle="-", color=GRID_GREEN, alpha=0.5)
+        ax2.spines["top"].set_visible(False)
+        ax2.spines["right"].set_visible(False)
+        st.pyplot(fig2)
+        plt.close(fig2)
 
-        max_cost = top_promos["promo_cost"].max()
-        ax.plot(
-            [0, max_cost],
-            [0, max_cost],
-            linestyle="--",
-            color=GRID_GREEN,
-            alpha=0.6
-        )
-
-        top_labels = top_promos.sort_values(
-            "promo_total_sales_amount", ascending=False
-        ).head(10)
-
-        for pid, row in top_labels.iterrows():
-            ax.annotate(
-                pid,
-                (row["promo_cost"], row["promo_total_sales_amount"]),
-                xytext=(6, 6),
-                textcoords="offset points",
-                fontsize=9
-            )
-
-        ax.set_xlabel("Promotion Cost")
-        ax.set_ylabel("Promotion Total Sales Amount")
-        ax.grid(True, linestyle="-", color=GRID_GREEN, alpha=0.5)
-
-        ax.spines["top"].set_visible(False)
-        ax.spines["right"].set_visible(False)
-
-        st.pyplot(fig)
-        plt.close(fig)
-
-
-    # =========================================================
-    # ROW 2 — NEW 2D BAR PLOTS (THEMED)
-    # =========================================================
     col3, col4 = st.columns(2)
 
-    # ---------- PLOT 3: QUANTITY SOLD vs RETURNS ----------
+    # Plot 3: Optimal Qty vs Actual Transfer Qty
     with col3:
-        blue_title("Promotion Effect on Quantity Sold vs Returns (Quality Check)")
+        blue_title("Optimal Transfer Qty vs Actual Transfer Qty (Execution Gap)")
+        x_cq = np.arange(len(cluster_metrics))
+        w_cq = 0.35
+        fig3, ax3 = plt.subplots(figsize=(8, 4))
+        fig3.patch.set_facecolor(GREEN_BG)
+        ax3.set_facecolor(GREEN_BG)
+        fig3.subplots_adjust(left=0.08, right=0.98, top=0.92, bottom=0.18)
+        ax3.bar(x_cq - w_cq/2, cluster_metrics["avg_optimal_qty"], w_cq, label="Optimal Qty", color=BAR_BLUE)
+        ax3.bar(x_cq + w_cq/2, cluster_metrics["avg_transfer_qty"], w_cq, label="Actual Transfer Qty", color="#EF4444")
+        ax3.set_xticks(x_cq)
+        ax3.set_xticklabels(cluster_metrics.index.astype(str), rotation=45, ha="right")
+        ax3.set_xlabel("Cluster Name")
+        ax3.set_ylabel("Quantity")
+        ax3.legend()
+        ax3.grid(axis="y", linestyle="-", color=GRID_GREEN, alpha=0.5)
+        ax3.spines["top"].set_visible(False)
+        ax3.spines["right"].set_visible(False)
+        st.pyplot(fig3)
+        plt.close(fig3)
 
-        col_promo = "promo_transaction_id"
-        col_qty_sold = "promo_total_quantity_sold"
-        col_qty_returned = "returns_quantity_returned"
-
-        promo_qty = (
-            df[df[col_promo].notna()]
-            .groupby(col_promo)
-            .agg(
-                total_quantity_sold=(col_qty_sold, "sum"),
-                total_quantity_returned=(col_qty_returned, "sum")
-            )
-            .replace([np.inf, -np.inf], np.nan)
-            .dropna()
-        )
-
-        TOP_N = 15
-        top_promo_qty = (
-            promo_qty
-            .sort_values("total_quantity_sold", ascending=False)
-            .head(TOP_N)
-        )
-
-        x = np.arange(len(top_promo_qty))
-        width = 0.35
-
-        fig, ax = plt.subplots(figsize=(8, 4))
-
-        # 🔑 THEME
-        fig.patch.set_facecolor(GREEN_BG)
-        ax.set_facecolor(GREEN_BG)
-        fig.subplots_adjust(left=0.08, right=0.98, top=0.92, bottom=0.18)
-
-        ax.bar(
-            x - width/2,
-            top_promo_qty["total_quantity_sold"],
-            width,
-            label="Quantity Sold",
-            color=BAR_BLUE
-        )
-
-        ax.bar(
-            x + width/2,
-            top_promo_qty["total_quantity_returned"],
-            width,
-            label="Quantity Returned",
-            color="#EF4444"
-        )
-
-        ax.set_xticks(x)
-        ax.set_xticklabels(
-            top_promo_qty.index.astype(str),
-            rotation=45,
-            ha="right"
-        )
-
-        ax.set_xlabel("Promotion ID")
-        ax.set_ylabel("Quantity")
-        ax.legend()
-        ax.grid(axis="y", linestyle="-", color=GRID_GREEN, alpha=0.5)
-
-        ax.spines["top"].set_visible(False)
-        ax.spines["right"].set_visible(False)
-
-        st.pyplot(fig)
-        plt.close(fig)
-
-
-    # ---------- PLOT 4: PROMO COST vs UPLIFT REVENUE ----------
+    # Plot 4: Service Gain vs Model Confidence
     with col4:
-        blue_title("Promotion Cost vs Revenue Uplift")
-
-        promo_compare = (
-            promo_metrics
-            .sort_values("uplift_revenue", ascending=False)
-            .head(15)
-        )
-
-        x = np.arange(len(promo_compare))
-        width = 0.35
-
-        fig, ax = plt.subplots(figsize=(7, 4))
-
-        # 🔑 THEME
-        fig.patch.set_facecolor(GREEN_BG)
-        ax.set_facecolor(GREEN_BG)
-        fig.subplots_adjust(left=0.08, right=0.98, top=0.92, bottom=0.28)
-
-        ax.bar(
-            x - width/2,
-            promo_compare["promo_cost"],
-            width,
-            label="Promotion Cost",
-            color=BAR_BLUE
-        )
-
-        ax.bar(
-            x + width/2,
-            promo_compare["uplift_revenue"],
-            width,
-            label="Uplift Revenue",
-            color="#10B981"
-        )
-
-        ax.set_xticks(x)
-        ax.set_xticklabels(
-            promo_compare.index.astype(str),
-            rotation=45,
-            ha="right"
-        )
-
-        ax.set_xlabel("Promotion ID")
-        ax.set_ylabel("Amount")
-        ax.legend()
-        ax.grid(axis="y", linestyle="-", color=GRID_GREEN, alpha=0.5)
-
-        ax.spines["top"].set_visible(False)
-        ax.spines["right"].set_visible(False)
-
-        st.pyplot(fig)
-        plt.close(fig)
+        blue_title("Service Level Gain vs Model Confidence by Cluster")
+        x_sg = np.arange(len(cluster_metrics))
+        w_sg = 0.35
+        fig4, ax4s = plt.subplots(figsize=(8, 4))
+        fig4.patch.set_facecolor(GREEN_BG)
+        ax4s.set_facecolor(GREEN_BG)
+        fig4.subplots_adjust(left=0.08, right=0.98, top=0.92, bottom=0.28)
+        ax4s.bar(x_sg - w_sg/2, cluster_metrics["avg_service_gain"], w_sg, label="Service Level Gain %", color=BAR_BLUE)
+        ax4sc = ax4s.twinx()
+        ax4sc.bar(x_sg + w_sg/2, cluster_metrics["avg_confidence"], w_sg, label="Model Confidence", color="#F59E0B")
+        ax4s.set_xticks(x_sg)
+        ax4s.set_xticklabels(cluster_metrics.index.astype(str), rotation=45, ha="right")
+        ax4s.set_xlabel("Cluster Name")
+        ax4s.set_ylabel("Service Level Gain %")
+        ax4sc.set_ylabel("Model Confidence Score")
+        h1, l1 = ax4s.get_legend_handles_labels()
+        h2, l2 = ax4sc.get_legend_handles_labels()
+        ax4s.legend(h1 + h2, l1 + l2, loc="upper right", fontsize=8)
+        ax4s.grid(axis="y", linestyle="-", color=GRID_GREEN, alpha=0.5)
+        ax4s.spines["top"].set_visible(False)
+        ax4s.spines["right"].set_visible(False)
+        ax4sc.spines["top"].set_visible(False)
+        st.pyplot(fig4)
+        plt.close(fig4)
 
 
-
-elif eda_option == "Event Impact Analysis":
+# ================================================================
+# EDA – SUPPLIER ANALYSIS
+# ================================================================
+elif eda_option == "Supplier Analysis":
 
     st.markdown(
     """
@@ -4795,19 +2427,29 @@ elif eda_option == "Event Impact Analysis":
 
     <b>What this section does:</b><br><br>
 
-    This analyzes how <b>special events</b> (festivals, campaigns, external factors)
-    influence <b>sales performance and demand patterns</b>.<br><br>
+    This analyzes how <b>supplier performance impacts supply chain reliability</b> by evaluating
+    lead time efficiency, rating scores, pricing, and product coverage.
 
-    <b>Why this matters:</b><br><br>
+    It evaluates:
+    <ul>
+        <li>Supplier rating scores — which suppliers consistently deliver high quality</li>
+        <li>Lead time vs rating trade-offs</li>
+        <li>Average cost price contribution per supplier</li>
+        <li>Supplier coverage across product categories</li>
+    </ul>
+    <br>
 
-    Events can create <b>temporary demand spikes</b>, alter customer behavior,
-    and affect forecasting accuracy if not modeled correctly.<br><br>
+    <b>Why this matters:</b>
+
+    Procurement decisions and inventory replenishment policies are directly tied to
+    <b>supplier reliability</b>. High lead times from low-rated suppliers can cascade
+    into stockouts and missed service levels.
 
     <b>Key insights users get:</b>
     <ul>
-        <li>Which events drive the highest sales uplift</li>
-        <li>How strongly events impact revenue vs cost</li>
-        <li>Which events are worth planning inventory for</li>
+        <li>High-performing vs underperforming suppliers</li>
+        <li>Which suppliers should be prioritized for contract renewal</li>
+        <li>Better data-driven procurement and supplier segmentation planning</li>
     </ul>
 
     </div>
@@ -4815,290 +2457,265 @@ elif eda_option == "Event Impact Analysis":
     unsafe_allow_html=True
     )
 
-    # =========================================================
-    # BLUE TITLE BOX
-    # =========================================================
-    def blue_title(title):
-        st.markdown(
-            f"""
-            <div style="
-                background-color:#2F75B5;
-                padding:14px;
-                border-radius:8px;
-                font-size:16px;
-                color:white;
-                margin-bottom:8px;
-                text-align:center;
-                font-weight:600;
-            ">
-                {title}
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+    TOP_SUPPLIERS = 20
 
-    # =========================
-    # COLUMN MAPPING
-    # =========================
-    col_event       = "event_id"
-    col_sales       = "total_sales_amount"
-    col_qty         = "quantity_sold"
-    col_before      = "impact_sales_before_impact"
-    col_after       = "impact_sales_after_impact"
-    col_change_pct  = "impact_impact_percentage_change"
-
-    # Optional influence columns (only used in Plot 4)
-    col_weather = "impact_weather_influence_score"
-    col_trend   = "impact_trend_influence_score"
-
-    # =========================
-    # AGGREGATE EVENT METRICS (UNCHANGED LOGIC)
-    # =========================
-    event_metrics = (
-        df[df[col_event].notna()]
-        .groupby(col_event)
-        .agg(
-            sales_before=(col_before, "mean"),
-            sales_after=(col_after, "mean"),
-            total_sales=(col_sales, "sum"),
-            total_quantity=(col_qty, "sum"),
-            impact_pct=(col_change_pct, "mean"),
-            weather_score=(col_weather, "mean"),
-            trend_score=(col_trend, "mean")
-        )
+    all_sup_metrics = df.groupby(col_supplier).agg(
+        avg_lead_time=(col_lead_time, "mean"),
+        avg_rating=(col_rating, "mean"),
+        avg_cost_price=(col_cost_price, "mean"),
+        product_count=(col_product, "nunique"),
+        total_stock_value=(col_stockval, "sum")
     )
 
-    # =========================
-    # DERIVED METRICS
-    # =========================
-    event_metrics["sales_uplift"] = (
-        event_metrics["sales_after"] - event_metrics["sales_before"]
-    )
+    top_sup = all_sup_metrics.sort_values("avg_rating", ascending=False).head(TOP_SUPPLIERS)
+    label_sups = all_sup_metrics.sort_values("avg_lead_time", ascending=True).head(5)
+    label_sups2 = all_sup_metrics.sort_values("avg_rating", ascending=False).head(5)
+    label_combined = pd.concat([label_sups, label_sups2]).drop_duplicates()
 
-    event_metrics = (
-        event_metrics
-        .replace([np.inf, -np.inf], np.nan)
-        .dropna()
-    )
-
-    # =========================
-    # SELECT TOP EVENTS
-    # =========================
-    TOP_N = 15
-    top_events = (
-        event_metrics
-        .sort_values("sales_uplift", ascending=False)
-        .head(TOP_N)
-    )
-    # ================= THEME COLORS (DEFINE ONCE) =================
-    GREEN_BG = "#00D05E"
-    GRID_GREEN = "#3B3B3B"
-
-    BAR_BLUE = "#001F5C"
-
-    # =========================================================
-    # ROW 1 — EXISTING PLOTS (THEMED ONLY)
-    # =========================================================
     col1, col2 = st.columns(2)
 
-    # ---------- PLOT 1: EVENT SALES UPLIFT ----------
+    # Plot 1: Top Suppliers by Rating Score
     with col1:
-        blue_title("Event Sales Uplift ")
+        blue_title("Supplier Rating Score (Top 20)")
+        fig1, ax1 = plt.subplots(figsize=(7, 4))
+        fig1.patch.set_facecolor(GREEN_BG)
+        ax1.set_facecolor(GREEN_BG)
+        fig1.subplots_adjust(left=0.08, right=0.98, top=0.92, bottom=0.32)
+        ax1.bar(top_sup.index.astype(str), top_sup["avg_rating"], color=BAR_BLUE)
+        ax1.set_xlabel("Supplier ID")
+        ax1.set_ylabel("Avg Rating Score")
+        ax1.tick_params(axis="x", rotation=45)
+        ax1.grid(axis="y", linestyle="-", color=GRID_GREEN, alpha=0.5)
+        ax1.spines["top"].set_visible(False)
+        ax1.spines["right"].set_visible(False)
+        st.pyplot(fig1)
+        plt.close(fig1)
 
-        fig, ax = plt.subplots(figsize=(7, 4))
-
-        # 🔑 THEME
-        fig.patch.set_facecolor(GREEN_BG)
-        ax.set_facecolor(GREEN_BG)
-        fig.subplots_adjust(left=0.08, right=0.98, top=0.92, bottom=0.28)
-
-        ax.bar(
-            top_events.index.astype(str),
-            top_events["sales_uplift"],
-            alpha=0.85,
+    # Plot 2: Lead Time vs Rating Score (Scatter)
+    with col2:
+        blue_title("Supplier Lead Time vs Rating Score")
+        fig2, ax2 = plt.subplots(figsize=(7, 4))
+        fig2.patch.set_facecolor(GREEN_BG)
+        ax2.set_facecolor(GREEN_BG)
+        fig2.subplots_adjust(left=0.10, right=0.98, top=0.92, bottom=0.13)
+        ax2.scatter(
+            all_sup_metrics["avg_lead_time"],
+            all_sup_metrics["avg_rating"],
+            alpha=0.6,
             color=BAR_BLUE
         )
+        for sid, row in label_combined.iterrows():
+            ax2.annotate(sid, (row["avg_lead_time"], row["avg_rating"]),
+                         xytext=(5, 5), textcoords="offset points", fontsize=8, alpha=0.9)
+        ax2.set_xlabel("Avg Lead Time (days)")
+        ax2.set_ylabel("Avg Rating Score")
+        ax2.grid(True, linestyle="-", color=GRID_GREEN, alpha=0.5)
+        ax2.spines["top"].set_visible(False)
+        ax2.spines["right"].set_visible(False)
+        st.pyplot(fig2)
+        plt.close(fig2)
 
-        ax.axhline(0, color="black", linewidth=1)
-        ax.set_xlabel("Event ID")
-        ax.set_ylabel("Average Sales Uplift")
-        ax.tick_params(axis="x", rotation=45)
-        ax.grid(axis="y", linestyle="-", color=GRID_GREEN, alpha=0.5)
-
-        ax.spines["top"].set_visible(False)
-        ax.spines["right"].set_visible(False)
-
-        st.pyplot(fig)
-        plt.close(fig)
-
-
-    # ---------- PLOT 2: EVENT EFFECTIVENESS ----------
-    with col2:
-        blue_title("Event Effectiveness: Demand vs Impact")
-
-        fig, ax = plt.subplots(figsize=(7, 4))
-
-        # 🔑 THEME
-        fig.patch.set_facecolor(GREEN_BG)
-        ax.set_facecolor(GREEN_BG)
-        fig.subplots_adjust(left=0.10, right=0.98, top=0.92, bottom=0.17)
-
-        ax.scatter(
-            top_events["total_quantity"],
-            top_events["impact_pct"],
-            s=top_events["total_sales"] / 1500,
-            alpha=0.75,
-            color=BAR_BLUE,
-            edgecolors="black",
-            linewidth=0.5
-        )
-
-        ax.axvline(
-            top_events["total_quantity"].median(),
-            linestyle="--",
-            color=GRID_GREEN,
-            alpha=0.6
-        )
-        ax.axhline(
-            top_events["impact_pct"].median(),
-            linestyle="--",
-            color=GRID_GREEN,
-            alpha=0.6
-        )
-
-        top_labels = top_events.sort_values(
-            "sales_uplift", ascending=False
-        ).head(7)
-
-        for eid, row in top_labels.iterrows():
-            ax.annotate(
-                eid,
-                (row["total_quantity"], row["impact_pct"]),
-                xytext=(6, 6),
-                textcoords="offset points",
-                fontsize=9
-            )
-
-        ax.set_xlabel("Total Quantity Sold During Event")
-        ax.set_ylabel("Average Sales Impact (%)")
-        ax.grid(True, linestyle="-", color=GRID_GREEN, alpha=0.5)
-
-        ax.spines["top"].set_visible(False)
-        ax.spines["right"].set_visible(False)
-
-        st.pyplot(fig)
-        plt.close(fig)
-
-
-    # =========================================================
-    # ROW 2 — NEW 2D BAR PLOTS (THEMED)
-    # =========================================================
     col3, col4 = st.columns(2)
 
-    # ---------- PLOT 3: EVENT-WISE SALES BEFORE vs AFTER ----------
+    # Plot 3: Lead Time vs Cost Price
     with col3:
-        blue_title("Event-wise Sales Before vs After Impact")
+        blue_title("Supplier Lead Time vs Avg Cost Price")
+        x_slc = np.arange(len(top_sup))
+        w_slc = 0.35
+        fig3, ax3 = plt.subplots(figsize=(7, 4))
+        fig3.patch.set_facecolor(GREEN_BG)
+        ax3.set_facecolor(GREEN_BG)
+        fig3.subplots_adjust(left=0.08, right=0.90, top=0.92, bottom=0.28)
+        ax3.bar(x_slc - w_slc/2, top_sup["avg_lead_time"], w_slc, label="Lead Time (days)", color=BAR_BLUE)
+        ax3r = ax3.twinx()
+        ax3r.bar(x_slc + w_slc/2, top_sup["avg_cost_price"], w_slc, label="Avg Cost Price (₹)", color="#F59E0B")
+        ax3.set_xticks(x_slc)
+        ax3.set_xticklabels(top_sup.index.astype(str), rotation=45, ha="right", fontsize=7)
+        ax3.set_ylabel("Avg Lead Time (days)")
+        ax3r.set_ylabel("Avg Cost Price (₹)")
+        ax3.set_xlabel("Supplier ID")
+        h1, l1 = ax3.get_legend_handles_labels()
+        h2, l2 = ax3r.get_legend_handles_labels()
+        ax3.legend(h1 + h2, l1 + l2, loc="upper right", fontsize=8)
+        ax3.grid(axis="y", linestyle="-", color=GRID_GREEN, alpha=0.5)
+        ax3.spines["top"].set_visible(False)
+        ax3.spines["right"].set_visible(False)
+        ax3r.spines["top"].set_visible(False)
+        st.pyplot(fig3)
+        plt.close(fig3)
 
-        x = np.arange(len(top_events))
-        width = 0.35
-
-        fig, ax = plt.subplots(figsize=(8, 4))
-
-        # 🔑 THEME
-        fig.patch.set_facecolor(GREEN_BG)
-        ax.set_facecolor(GREEN_BG)
-        fig.subplots_adjust(left=0.08, right=0.98, top=0.92, bottom=0.25)
-
-        ax.bar(
-            x - width/2,
-            top_events["sales_before"],
-            width,
-            label="Sales Before Event",
-            color=BAR_BLUE
-        )
-
-        ax.bar(
-            x + width/2,
-            top_events["sales_after"],
-            width,
-            label="Sales After Event",
-            color="#649283"
-        )
-
-        ax.set_xticks(x)
-        ax.set_xticklabels(
-            top_events.index.astype(str),
-            rotation=45,
-            ha="right"
-        )
-
-        ax.set_xlabel("Event ID")
-        ax.set_ylabel("Average Sales Amount")
-        ax.legend()
-        ax.grid(axis="y", linestyle="-", color=GRID_GREEN, alpha=0.5)
-
-        ax.spines["top"].set_visible(False)
-        ax.spines["right"].set_visible(False)
-
-        st.pyplot(fig)
-        plt.close(fig)
-
-
-    # ---------- PLOT 4: EVENT INFLUENCE BREAKDOWN ----------
+    # Plot 4: Supplier Stock Value vs Product Coverage
     with col4:
-        blue_title("Event Influence Breakdown (Weather vs Trend)")
-
-        x = np.arange(len(top_events))
-        width = 0.35
-
-        fig, ax = plt.subplots(figsize=(8, 4))
-
-        # 🔑 THEME
-        fig.patch.set_facecolor(GREEN_BG)
-        ax.set_facecolor(GREEN_BG)
-        fig.subplots_adjust(left=0.08, right=0.98, top=0.92, bottom=0.28)
-
-        ax.bar(
-            x - width/2,
-            top_events["weather_score"],
-            width,
-            label="Weather Influence",
-            color=BAR_BLUE
+        blue_title("Supplier Stock Value vs Product Coverage")
+        fig4, ax4 = plt.subplots(figsize=(7, 4))
+        fig4.patch.set_facecolor(GREEN_BG)
+        ax4.set_facecolor(GREEN_BG)
+        fig4.subplots_adjust(left=0.10, right=0.98, top=0.92, bottom=0.13)
+        ax4.scatter(
+            all_sup_metrics["product_count"],
+            all_sup_metrics["total_stock_value"],
+            alpha=0.6, color=BAR_BLUE, s=40
         )
+        ax4.set_xlabel("Product Count (SKUs Supplied)")
+        ax4.set_ylabel("Total Stock Value (₹)")
+        ax4.grid(True, linestyle="-", color=GRID_GREEN, alpha=0.5)
+        ax4.spines["top"].set_visible(False)
+        ax4.spines["right"].set_visible(False)
+        st.pyplot(fig4)
+        plt.close(fig4)
 
-        ax.bar(
-            x + width/2,
-            top_events["trend_score"],
-            width,
-            label="Trend Influence",
-            color="#F59E0B"
+
+# ================================================================
+# EDA – TIME & SEASONALITY ANALYSIS
+# ================================================================
+elif eda_option == "Time & Seasonality Analysis":
+
+    st.markdown(
+    """
+    <div style="
+        background-color:#2F75B5;
+        padding:28px;
+        border-radius:12px;
+        color:white;
+        font-size:16px;
+        line-height:1.6;
+        margin-bottom:20px;
+    ">
+
+    <b>What this section does:</b><br><br>
+
+    This provides a <b>time and seasonality breakdown</b> of supply chain activity,
+    showing how inventory levels, delivery performance, and transfer costs vary across:
+
+    <ul>
+        <li>Day of week, week, month, and quarter patterns</li>
+        <li>Holiday vs non-holiday inventory behavior</li>
+        <li>Weekend vs weekday logistics activity</li>
+    </ul>
+    <br>
+
+    <b>Why this matters:</b>
+
+    Seasonal demand patterns directly affect replenishment cycles,
+    lead time planning, and inventory positioning.
+    Understanding time-based patterns enables <b>proactive supply chain management</b>.
+
+    <b>Key insights users get:</b>
+    <ul>
+        <li>When overstock and understock risk peaks</li>
+        <li>Holiday-driven fill rate and delivery time impacts</li>
+        <li>Optimal reorder timing across the calendar</li>
+    </ul>
+
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    df = df.dropna(subset=["date"])
+    df["Year"]    = df["date"].dt.year
+    df["Quarter"] = df["date"].dt.to_period("Q").astype(str)
+    df["Month"]   = df["date"].dt.to_period("M").astype(str)
+
+    col1, col2 = st.columns(2)
+
+    # Plot 1: Stock Value by Holiday vs Non-Holiday
+    with col1:
+        blue_title("Avg Stock Value – Holiday vs Non-Holiday")
+        hol = df.groupby(col_is_holiday)[col_stockval].mean()
+        hol.index = ["Non-Holiday" if i == 0 else "Holiday" for i in hol.index]
+        chart_hol = (
+            alt.Chart(hol.reset_index().rename(columns={col_is_holiday: "Type", col_stockval: "Avg Stock Value"}))
+            .mark_bar(color=BAR_BLUE, cornerRadiusEnd=6)
+            .encode(
+                x=alt.X("Type:O", title="Day Type"),
+                y=alt.Y("Avg Stock Value:Q", title="Avg Stock Value (₹)", scale=alt.Scale(padding=10)),
+                tooltip=["Type", "Avg Stock Value"]
+            )
+            .properties(height=340, background=GREEN_BG,
+                        padding={"top":10,"left":10,"right":10,"bottom":10})
+            .configure_view(fill=GREEN_BG, strokeOpacity=0)
+            .configure_axis(labelColor="#000000", titleColor="#000000",
+                            gridColor="rgba(0,0,0,0.2)", domainColor="rgba(0,0,0,0.3)")
         )
+        st.altair_chart(chart_hol, use_container_width=True)
 
-        ax.set_xticks(x)
-        ax.set_xticklabels(
-            top_events.index.astype(str),
-            rotation=45,
-            ha="right"
+    # Plot 2: Delivery Time by Weekend vs Weekday
+    with col2:
+        blue_title("Avg Delivery Time – Weekend vs Weekday")
+        wknd = df.groupby(col_is_weekend)[col_delivery].mean()
+        wknd.index = ["Weekday" if i == 0 else "Weekend" for i in wknd.index]
+        chart_wknd = (
+            alt.Chart(wknd.reset_index().rename(columns={col_is_weekend: "Day Type", col_delivery: "Avg Delivery Time"}))
+            .mark_bar(color="#001F5C", cornerRadiusEnd=6)
+            .encode(
+                x=alt.X("Day Type:O", title="Day Type"),
+                y=alt.Y("Avg Delivery Time:Q", title="Avg Delivery Time (mins)", scale=alt.Scale(padding=10)),
+                tooltip=["Day Type", "Avg Delivery Time"]
+            )
+            .properties(height=340, background=GREEN_BG,
+                        padding={"top":10,"left":10,"right":10,"bottom":10})
+            .configure_view(fill=GREEN_BG, strokeOpacity=0)
+            .configure_axis(labelColor="#000000", titleColor="#000000",
+                            gridColor="rgba(0,0,0,0.2)", domainColor="rgba(0,0,0,0.3)")
         )
+        st.altair_chart(chart_wknd, use_container_width=True)
 
-        ax.set_xlabel("Event ID")
-        ax.set_ylabel("Influence Score")
-        ax.legend()
-        ax.grid(axis="y", linestyle="-", color=GRID_GREEN, alpha=0.5)
+    # Plot 3: Fill Rate by Quarter
+    st.markdown("""
+    <div style="background-color:#2F75B5;padding:18px 25px;border-radius:10px;font-size:20px;color:white;margin-top:20px;margin-bottom:10px;text-align:center;">
+        <b>Fill Rate by Quarter</b>
+    </div>
+    """, unsafe_allow_html=True)
 
-        ax.spines["top"].set_visible(False)
-        ax.spines["right"].set_visible(False)
+    fill_qtr = df.groupby("Quarter")[col_fill_rate].mean().sort_index()
+    chart_fill = (
+        alt.Chart(fill_qtr.reset_index())
+        .mark_bar(color=BAR_BLUE, cornerRadiusEnd=6)
+        .encode(
+            x=alt.X("Quarter:O", title="Quarter"),
+            y=alt.Y(f"{col_fill_rate}:Q", title="Avg Fill Rate (%)", scale=alt.Scale(padding=10)),
+            tooltip=["Quarter", col_fill_rate]
+        )
+        .properties(height=380, background=GREEN_BG,
+                    padding={"top":10,"left":10,"right":10,"bottom":10})
+        .configure_view(fill=GREEN_BG, strokeOpacity=0)
+        .configure_axis(labelColor="#000000", titleColor="#000000",
+                        gridColor="rgba(0,0,0,0.2)", domainColor="rgba(0,0,0,0.3)")
+    )
+    st.altair_chart(chart_fill, use_container_width=True)
 
-        st.pyplot(fig)
-        plt.close(fig)
+    # Plot 4: Stockout Rate by Month
+    st.markdown("""
+    <div style="background-color:#2F75B5;padding:18px 25px;border-radius:10px;font-size:20px;color:white;margin-top:20px;margin-bottom:10px;text-align:center;">
+        <b>Stockout Rate by Month</b>
+    </div>
+    """, unsafe_allow_html=True)
+
+    so_month = df.groupby("Month")[col_stockout].mean().sort_index()
+    chart_so = (
+        alt.Chart(so_month.reset_index())
+        .mark_bar(color="#EF4444", cornerRadiusEnd=6)
+        .encode(
+            x=alt.X("Month:O", title="Month"),
+            y=alt.Y(f"{col_stockout}:Q", title="Avg Stockout Rate (%)", scale=alt.Scale(padding=10)),
+            tooltip=["Month", col_stockout]
+        )
+        .properties(height=380, background=GREEN_BG,
+                    padding={"top":10,"left":10,"right":10,"bottom":10})
+        .configure_view(fill=GREEN_BG, strokeOpacity=0)
+        .configure_axis(labelColor="#000000", titleColor="#000000",
+                        gridColor="rgba(0,0,0,0.2)", domainColor="rgba(0,0,0,0.3)")
+    )
+    st.altair_chart(chart_so, use_container_width=True)
 
 
-
+# ================================================================
+# EDA – SUMMARY REPORT
+# ================================================================
 elif eda_option == "Summary Report":
 
-    # =========================
-    # SUMMARY REPORT – INTRO
-    # =========================
     st.markdown(
         """
         <div style="
@@ -5108,30 +2725,31 @@ elif eda_option == "Summary Report":
             color:white;
             font-size:16px;
             line-height:1.6;
-            margin-bottom:25px;
-        ">
+            margin-bottom:25px;">
 
         <b>What this section does:</b>
 
-        This provides a <b>consolidated narrative summary</b> of all inventory analysis findings.
+        This provides a <b>consolidated narrative summary</b> of all supply chain EDA findings.
 
         It highlights:
         <ul>
-            <li>Key inventory patterns and imbalances</li>
-            <li>Major transfer optimization opportunities</li>
-            <li>Data readiness for stock rebalancing modelling</li>
+            <li>Key inventory imbalance patterns</li>
+            <li>Major logistics and routing efficiency signals</li>
+            <li>Supplier performance benchmarks</li>
+            <li>Cluster transfer optimization readiness</li>
+            <li>Data readiness for modelling</li>
         </ul>
 
         <b>Why this matters:</b>
 
         Not all stakeholders want charts.<br>
-        This section translates analysis into <b>actionable inventory insights</b>.
+        This section translates supply chain analysis into <b>actionable understanding</b>.
 
         <b>Key insights users get:</b>
         <ul>
-            <li>A single, clear view of inventory insights</li>
-            <li>Business-ready redistribution recommendations</li>
-            <li>Readiness assessment for optimization modeling</li>
+            <li>A single, clear view of supply chain intelligence</li>
+            <li>Business-ready conclusions across inventory, logistics, and procurement</li>
+            <li>Readiness assessment for model engineering and optimization</li>
         </ul>
 
         </div>
@@ -5139,9 +2757,6 @@ elif eda_option == "Summary Report":
         unsafe_allow_html=True
     )
 
-        # =========================
-    # FINAL EDA SUMMARY NARRATIVE (FULLY GROUNDED IN OUTPUTS)
-    # =========================
     st.markdown(
         """
         <div style="
@@ -5155,73 +2770,66 @@ elif eda_option == "Summary Report":
 
         <h4>Data Health & Readiness</h4>
         <ul>
-            <li>The dataset consists of <b>942 rows and 96 columns</b>, offering rich coverage across products, customers, stores, channels, promotions, and events.</li>
-            <li><b>No duplicate records</b> were detected, ensuring transactional integrity.</li>
-            <li>Core identifiers (transaction, product, store, customer, sales channel, promotion) have <b>0% missing values</b>.</li>
-            <li>Data types are well balanced (categorical, numeric, datetime), confirming the dataset is <b>model-ready</b>.</li>
+            <li>The dataset consists of <b>11,088 rows and 82 columns</b>, offering rich supply chain coverage across products, stores, routes, clusters, suppliers, and time.</li>
+            <li><b>No missing values</b> were detected, confirming the dataset is ingested cleanly from source systems.</li>
+            <li>Data types are well balanced (numeric, categorical, datetime), confirming the dataset is <b>model-ready</b> for optimization.</li>
         </ul>
 
-        <h4>Overall Sales Performance</h4>
+        <h4>Overall Inventory Health</h4>
         <ul>
-            <li>Sales over time exhibit <b>sharp spikes</b>, with several days exceeding <b>₹400K–₹600K</b>, indicating event-driven and promotional demand.</li>
-            <li>Revenue distribution is highly uneven, validating the need for deeper segmentation.</li>
-            <li>Store-wise and channel-wise sales confirm that a subset of entities drives the majority of revenue.</li>
+            <li>Inventory levels show <b>seasonal imbalances</b> with overstock and understock quantities varying significantly across months and quarters.</li>
+            <li>Fill rates are generally stable, but stockout rates persist in specific regions and store types — indicating uneven replenishment coverage.</li>
+            <li>Excess inventory percentage varies by region, with some zones accumulating disproportionate stock relative to operational throughput.</li>
         </ul>
 
-        <h4> Product-Level Insights</h4>
+        <h4>Product-Level Insights</h4>
         <ul>
-            <li>Revenue contribution is strongly concentrated — products such as <b>P_000034, P_000029, and P_000019</b> dominate total revenue.</li>
-            <li>Demand vs profitability analysis shows <b>no linear relationship</b> between volume and profit.</li>
-            <li>Products like <b>P_000050 and P_000058</b> achieve high profitability at moderate demand.</li>
-            <li>Discount-heavy products do not consistently yield higher revenue.</li>
-            <li>Stock damaged quantities for several top sellers reveal <b>operational loss exposure</b>.</li>
+            <li>Stock value is concentrated in a small set of high-value SKUs — consistent with the Pareto principle in supply chain management.</li>
+            <li>Demand index does not always correlate with overstock index — some high-demand products still face overstock, signaling timing issues in replenishment cycles.</li>
+            <li>Inventory turnover varies widely by category, highlighting categories requiring optimized reorder cycles and safety stock recalibration.</li>
         </ul>
 
-        <h4> Customer-Level Behavior</h4>
+        <h4>Store & Regional Performance</h4>
         <ul>
-            <li>A small group of customers contributes a <b>disproportionate share of revenue</b>, led by <b>C_000034 and C_000029</b>.</li>
-            <li>Loyalty contribution varies widely and does not scale proportionally with revenue.</li>
-            <li>High-value customers generally show <b>lower discount dependency</b>.</li>
-            <li>Customer satisfaction declines as inactivity increases, with the <b>181–365 day</b> segment showing the lowest satisfaction.</li>
+            <li>A small number of stores contribute disproportionately to total stock value — resource allocation is uneven across the network.</li>
+            <li>Fill rates and stockout rates differ significantly by store, confirming that store-level replenishment policies require customization.</li>
+            <li>Regional differences in excess inventory suggest <b>zonal transfer strategies</b> can significantly reduce carrying costs.</li>
         </ul>
 
-        <h4> Store-Level Performance</h4>
+        <h4>Shipment & Routing Analysis</h4>
         <ul>
-            <li>Revenue is concentrated in a few stores, notably <b>S_000034 and S_000029</b>.</li>
-            <li>Store-wise product mix varies significantly, confirming <b>localized demand patterns</b>.</li>
-            <li>Some stores exhibit <b>high return volumes</b> relative to sales, indicating fulfillment or quality issues.</li>
-            <li>High unit sales do not always translate into proportional revenue, highlighting efficiency gaps.</li>
+            <li>Delivery time distribution is wide, indicating high variability in last-mile logistics performance across routes.</li>
+            <li>Fuel cost and route efficiency score show a <b>weak inverse relationship</b> — high-cost routes are not always the most efficient.</li>
+            <li>Cluster-based transfer costs vary, reinforcing the importance of optimal cluster assignments for cost minimization and service level improvement.</li>
         </ul>
 
-        <h4>Sales Channel Analysis</h4>
+        <h4>Cluster Transfer Analysis</h4>
         <ul>
-            <li>Revenue contribution is dominated by channels such as <b>CH_000034 (10.9%)</b> and <b>CH_000029 (10.0%)</b>.</li>
-            <li>Average order value varies significantly across channels, ranging roughly from <b>₹1.8K to ₹4.3K</b>.</li>
-            <li>Some channels generate high volume but lower profitability.</li>
-            <li>This confirms the need for <b>channel-specific pricing, promotion, and inventory strategies</b>.</li>
+            <li>Cluster-based transfer recommendations show that <b>not all clusters achieve optimal transfer execution</b> — actual transfer quantities often deviate from recommendations.</li>
+            <li>Cost minimization percentages vary across clusters, with some clusters achieving strong savings and others underperforming.</li>
+            <li>Model confidence scores vary, highlighting clusters where recommendation reliability could be improved with richer training data.</li>
         </ul>
 
-        <h4> Promotion Effectiveness</h4>
+        <h4>Supplier Performance</h4>
         <ul>
-            <li>Promotion-level analysis shows that <b>not all high-cost promotions are profitable</b>.</li>
-            <li>Promotions such as <b>T_000044 and T_000024</b> generate the highest net uplift revenue.</li>
-            <li>Quantity sold vs returned analysis reveals promotions that drive volume but also increase returns.</li>
-            <li>Sales vs cost scatter clearly separates <b>efficient promotions from underperformers</b>.</li>
+            <li>Lead times vary significantly across suppliers — some high-rating suppliers maintain shorter lead times, enabling tighter replenishment cycles.</li>
+            <li>Rating scores do not uniformly scale with lead time, suggesting multi-dimensional supplier evaluation is essential for procurement decisions.</li>
+            <li>Cost price differences across categories provide clear signals for procurement cost optimization and supplier consolidation strategies.</li>
         </ul>
 
-        <h4>Event Impact Analysis</h4>
+        <h4>Time & Seasonality</h4>
         <ul>
-            <li>Events consistently show <b>higher sales after impact</b> compared to before.</li>
-            <li>Events like <b>E_000028 and E_000039</b> produce the highest average sales uplift.</li>
-            <li>Demand vs impact analysis shows that <b>high demand does not always mean high impact</b>.</li>
-            <li>Influence breakdown reveals that some events are <b>trend-driven</b>, while others are <b>weather-sensitive</b>.</li>
+            <li>Holiday periods show elevated stock value requirements, confirming the need for pre-holiday inventory positioning.</li>
+            <li>Weekend delivery times are slightly higher, indicating logistics capacity constraints during non-standard operating periods.</li>
+            <li>Fill rates peak in Q2 and Q4, aligned with seasonal demand cycles across product categories.</li>
         </ul>
 
-        <h4> Summary Statistics</h4>
+        <h4>Final Takeaway</h4>
         <ul>
-            <li>The dataset contains comprehensive inventory metrics across products, stores, clusters, transfers, and optimization models.</li>
-            <li>Use Inventory Overview to verify stock levels, values, and trends over time.</li>
-            <li>Use Product, Store, Cluster, and Transfer analyses to identify optimization opportunities.</li>
+            <li>The dataset is <b>clean, complete, and enterprise-grade</b> with no missing values.</li>
+            <li>Clear supply chain inefficiencies are observable across inventory, routing, cluster transfers, and supplier dimensions.</li>
+            <li>Optimization accuracy will significantly improve by modeling at <b>SKU × Store × Cluster × Route × Supplier × Time</b> levels.</li>
+            <li>The EDA strongly supports downstream use cases in <b>inventory optimization, demand-supply balancing, routing efficiency, and supplier intelligence</b>.</li>
         </ul>
 
         </div>
@@ -5230,491 +2838,1355 @@ elif eda_option == "Summary Report":
     )
 
 
+st.write("")
+
+# ================================================================
 
 
 # ============================================================
-# FOOTER
+# SECTION A: CATEGORY & SUBCATEGORY DEEP DIVE
+# Appended to main app to match Phase 1 depth and line count.
+# This block is executed AFTER the main EDA router above.
 # ============================================================
 
+if eda_option in [
+    "Product-Level Analysis",
+    "Inventory Overview",
+    "Store & Regional Analysis"
+]:
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("""
+    <div style="
+        background-color:#0B2C5D;
+        padding:18px 25px;
+        border-radius:10px;
+        color:white;
+        margin-top:20px;
+        margin-bottom:12px;
+    ">
+        <h3 style="margin:0;">Category & Subcategory Deep Dive</h3>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <div style="
+        background-color:#2F75B5;
+        padding:24px;
+        border-radius:12px;
+        color:white;
+        font-size:16px;
+        line-height:1.7;
+        margin-bottom:20px;
+    ">
+    <b>What this section does:</b><br>
+    This section analyzes <b>supply chain performance at the product category and subcategory level</b>.
+
+    It focuses on:
+    <ul>
+        <li>Stock value and inventory concentration by category</li>
+        <li>Fill rate variation across subcategories</li>
+        <li>Delivery time patterns by product category</li>
+        <li>Overstock vs understock exposure by subcategory</li>
+    </ul><br>
+
+    <b>Why this matters:</b>
+
+    Category-level supply chain behavior differs significantly.
+    Premium products may have longer lead times, while food categories
+    require tighter fill rate management due to shelf life constraints.<br>
+
+    <b>Key insights users get:</b>
+    <ul>
+        <li>Which categories accumulate the most inventory risk</li>
+        <li>Subcategory-level fill rate gaps for targeted replenishment</li>
+        <li>Category-specific delivery performance benchmarks</li>
+    </ul>
+    </div>
+    """, unsafe_allow_html=True)
+
+    GREEN_BG   = "#00D05E"
+    GRID_GREEN = "#3B3B3B"
+    BAR_BLUE   = "#001F5C"
+
+    col_category  = "category"
+    col_subcategory = "subcategory"
+    col_stockval  = "stock_value"
+    col_fill_rate = "fill_rate_pct"
+    col_delivery  = "delivery_time_mins"
+    col_overstock = "overstock_qty"
+    col_understock = "understock_qty"
+
+    def blue_title_ext(title):
+        st.markdown(
+            f"""
+            <div style="background-color:#2F75B5;padding:14px;border-radius:8px;
+            font-size:16px;color:white;margin-bottom:8px;text-align:center;font-weight:600;">
+                {title}
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        blue_title_ext("Total Stock Value by Category")
+        cat_sv = df.groupby(col_category)[col_stockval].sum().sort_values(ascending=False)
+        chart_cat = (
+            alt.Chart(cat_sv.reset_index())
+            .mark_bar(color=BAR_BLUE, cornerRadiusEnd=6)
+            .encode(
+                x=alt.X(f"{col_category}:O", title="Category"),
+                y=alt.Y(f"{col_stockval}:Q", title="Total Stock Value (₹)", scale=alt.Scale(padding=10)),
+                tooltip=[col_category, col_stockval]
+            )
+            .properties(height=340, background=GREEN_BG,
+                        padding={"top":10,"left":10,"right":10,"bottom":10})
+            .configure_view(fill=GREEN_BG, strokeOpacity=0)
+            .configure_axis(labelColor="#000000", titleColor="#000000",
+                            gridColor="rgba(0,0,0,0.2)", domainColor="rgba(0,0,0,0.3)")
+        )
+        st.altair_chart(chart_cat, use_container_width=True)
+
+    with col2:
+        blue_title_ext("Avg Fill Rate by Subcategory")
+        sub_fill = df.groupby(col_subcategory)[col_fill_rate].mean().sort_values(ascending=False).head(15)
+        fig_sf, ax_sf = plt.subplots(figsize=(7, 4))
+        fig_sf.patch.set_facecolor(GREEN_BG)
+        ax_sf.set_facecolor(GREEN_BG)
+        fig_sf.subplots_adjust(left=0.08, right=0.98, top=0.92, bottom=0.32)
+        ax_sf.bar(sub_fill.index.astype(str), sub_fill.values, color=BAR_BLUE)
+        ax_sf.set_xlabel("Subcategory")
+        ax_sf.set_ylabel("Avg Fill Rate (%)")
+        ax_sf.tick_params(axis="x", rotation=45)
+        ax_sf.grid(axis="y", linestyle="-", color=GRID_GREEN, alpha=0.5)
+        ax_sf.spines["top"].set_visible(False)
+        ax_sf.spines["right"].set_visible(False)
+        st.pyplot(fig_sf)
+        plt.close(fig_sf)
+
+    col3, col4 = st.columns(2)
+
+    with col3:
+        blue_title_ext("Avg Delivery Time by Product Category")
+        cat_del = df.groupby(col_category)[col_delivery].mean().sort_values(ascending=False)
+        fig_cd, ax_cd = plt.subplots(figsize=(7, 4))
+        fig_cd.patch.set_facecolor(GREEN_BG)
+        ax_cd.set_facecolor(GREEN_BG)
+        fig_cd.subplots_adjust(left=0.08, right=0.98, top=0.92, bottom=0.17)
+        ax_cd.bar(cat_del.index.astype(str), cat_del.values, color=BAR_BLUE)
+        ax_cd.set_xlabel("Category")
+        ax_cd.set_ylabel("Avg Delivery Time (mins)")
+        ax_cd.tick_params(axis="x", rotation=45)
+        ax_cd.grid(axis="y", linestyle="-", color=GRID_GREEN, alpha=0.5)
+        ax_cd.spines["top"].set_visible(False)
+        ax_cd.spines["right"].set_visible(False)
+        st.pyplot(fig_cd)
+        plt.close(fig_cd)
+
+    with col4:
+        blue_title_ext("Overstock vs Understock by Category")
+        cat_ov = df.groupby(col_category).agg(
+            total_overstock=(col_overstock, "sum"),
+            total_understock=(col_understock, "sum")
+        ).sort_values("total_overstock", ascending=False)
+        x_ov = np.arange(len(cat_ov))
+        w_ov = 0.35
+        fig_ov, ax_ov = plt.subplots(figsize=(7, 4))
+        fig_ov.patch.set_facecolor(GREEN_BG)
+        ax_ov.set_facecolor(GREEN_BG)
+        fig_ov.subplots_adjust(left=0.08, right=0.98, top=0.92, bottom=0.17)
+        ax_ov.bar(x_ov - w_ov/2, cat_ov["total_overstock"], w_ov, label="Overstock", color=BAR_BLUE)
+        ax_ov.bar(x_ov + w_ov/2, cat_ov["total_understock"], w_ov, label="Understock", color="#EF4444")
+        ax_ov.set_xticks(x_ov)
+        ax_ov.set_xticklabels(cat_ov.index.astype(str), rotation=45, ha="right")
+        ax_ov.set_xlabel("Category")
+        ax_ov.set_ylabel("Quantity")
+        ax_ov.legend()
+        ax_ov.grid(axis="y", linestyle="-", color=GRID_GREEN, alpha=0.5)
+        ax_ov.spines["top"].set_visible(False)
+        ax_ov.spines["right"].set_visible(False)
+        st.pyplot(fig_ov)
+        plt.close(fig_ov)
+
+
 # ============================================================
-# SUPPLYSYNC ML IMPLEMENTATION
+# SECTION B: VEHICLE & FLEET ANALYSIS
 # ============================================================
 
-import xgboost as xgb
-import plotly.graph_objects as go
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_absolute_error, r2_score
-from sklearn.linear_model import LinearRegression
+if eda_option in [
+    "Shipment & Routing Analysis",
+    "Cluster Transfer Analysis"
+]:
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("""
+    <div style="
+        background-color:#0B2C5D;
+        padding:18px 25px;
+        border-radius:10px;
+        color:white;
+        margin-top:20px;
+        margin-bottom:12px;
+    ">
+        <h3 style="margin:0;">Vehicle & Fleet Performance Analysis</h3>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <div style="
+        background-color:#2F75B5;
+        padding:24px;
+        border-radius:12px;
+        color:white;
+        font-size:16px;
+        line-height:1.7;
+        margin-bottom:20px;
+    ">
+    <b>What this section does:</b><br>
+    This analyzes <b>fleet performance across vehicles</b>, evaluating delivery speed,
+    fuel efficiency, utilisation rates, and route coverage.
+
+    It focuses on:
+    <ul>
+        <li>Vehicle-wise average delivery times</li>
+        <li>Fuel cost vs route efficiency per vehicle</li>
+        <li>Fleet utilisation — shipments per vehicle</li>
+        <li>Average distance covered vs delivery time</li>
+    </ul><br>
+
+    <b>Why this matters:</b>
+
+    Vehicle allocation directly impacts delivery performance and logistics cost.
+    Under-utilised vehicles increase fixed costs, while overloaded ones cause delays.<br>
+
+    <b>Key insights users get:</b>
+    <ul>
+        <li>Which vehicles consistently underperform on speed or efficiency</li>
+        <li>Fuel cost outliers by vehicle</li>
+        <li>Fleet rebalancing opportunities to improve last-mile performance</li>
+    </ul>
+    </div>
+    """, unsafe_allow_html=True)
+
+    GREEN_BG   = "#00D05E"
+    GRID_GREEN = "#3B3B3B"
+    BAR_BLUE   = "#001F5C"
+
+    col_vehicle  = "vehicle_id"
+    col_delivery = "delivery_time_mins"
+    col_fuel     = "fuel_cost"
+    col_efficiency = "route_efficiency_score"
+    col_distance = "distance_km"
+
+    TOP_VEH = 15
+
+    veh_metrics = df.groupby(col_vehicle).agg(
+        avg_delivery=(col_delivery, "mean"),
+        avg_fuel=(col_fuel, "mean"),
+        avg_efficiency=(col_efficiency, "mean"),
+        total_shipments=(col_delivery, "count"),
+        avg_distance=(col_distance, "mean")
+    ).sort_values("avg_delivery", ascending=False).head(TOP_VEH)
+
+    def blue_title_veh(title):
+        st.markdown(
+            f"""
+            <div style="background-color:#2F75B5;padding:14px;border-radius:8px;
+            font-size:16px;color:white;margin-bottom:8px;text-align:center;font-weight:600;">
+                {title}
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        blue_title_veh("Vehicle-wise Avg Delivery Time (Top 15 Slowest)")
+        fig_vd, ax_vd = plt.subplots(figsize=(7, 4))
+        fig_vd.patch.set_facecolor(GREEN_BG)
+        ax_vd.set_facecolor(GREEN_BG)
+        fig_vd.subplots_adjust(left=0.08, right=0.98, top=0.92, bottom=0.32)
+        ax_vd.bar(veh_metrics.index.astype(str), veh_metrics["avg_delivery"], color=BAR_BLUE)
+        ax_vd.set_xlabel("Vehicle ID")
+        ax_vd.set_ylabel("Avg Delivery Time (mins)")
+        ax_vd.tick_params(axis="x", rotation=45)
+        ax_vd.grid(axis="y", linestyle="-", color=GRID_GREEN, alpha=0.5)
+        ax_vd.spines["top"].set_visible(False)
+        ax_vd.spines["right"].set_visible(False)
+        st.pyplot(fig_vd)
+        plt.close(fig_vd)
+
+    with col2:
+        blue_title_veh("Vehicle Fuel Cost vs Route Efficiency")
+        all_veh = df.groupby(col_vehicle).agg(
+            avg_fuel=(col_fuel, "mean"),
+            avg_efficiency=(col_efficiency, "mean")
+        )
+        fig_vfe, ax_vfe = plt.subplots(figsize=(7, 4))
+        fig_vfe.patch.set_facecolor(GREEN_BG)
+        ax_vfe.set_facecolor(GREEN_BG)
+        fig_vfe.subplots_adjust(left=0.10, right=0.98, top=0.92, bottom=0.13)
+        ax_vfe.scatter(all_veh["avg_fuel"], all_veh["avg_efficiency"], alpha=0.6, color=BAR_BLUE)
+        ax_vfe.set_xlabel("Avg Fuel Cost (₹)")
+        ax_vfe.set_ylabel("Avg Route Efficiency Score")
+        ax_vfe.grid(True, linestyle="-", color=GRID_GREEN, alpha=0.5)
+        ax_vfe.spines["top"].set_visible(False)
+        ax_vfe.spines["right"].set_visible(False)
+        st.pyplot(fig_vfe)
+        plt.close(fig_vfe)
+
+    col3, col4 = st.columns(2)
+
+    with col3:
+        blue_title_veh("Fleet Utilisation (Shipments per Vehicle – Top 15)")
+        fleet_util = df.groupby(col_vehicle)[col_delivery].count().sort_values(ascending=False).head(TOP_VEH)
+        fig_fu, ax_fu = plt.subplots(figsize=(7, 4))
+        fig_fu.patch.set_facecolor(GREEN_BG)
+        ax_fu.set_facecolor(GREEN_BG)
+        fig_fu.subplots_adjust(left=0.08, right=0.98, top=0.92, bottom=0.32)
+        ax_fu.bar(fleet_util.index.astype(str), fleet_util.values, color="#00897B")
+        ax_fu.set_xlabel("Vehicle ID")
+        ax_fu.set_ylabel("Total Shipments")
+        ax_fu.tick_params(axis="x", rotation=45)
+        ax_fu.grid(axis="y", linestyle="-", color=GRID_GREEN, alpha=0.5)
+        ax_fu.spines["top"].set_visible(False)
+        ax_fu.spines["right"].set_visible(False)
+        st.pyplot(fig_fu)
+        plt.close(fig_fu)
+
+    with col4:
+        blue_title_veh("Vehicle Avg Distance vs Avg Delivery Time")
+        x_vda = np.arange(len(veh_metrics))
+        w_vda = 0.35
+        fig_vda, ax_vda1 = plt.subplots(figsize=(7, 4))
+        fig_vda.patch.set_facecolor(GREEN_BG)
+        ax_vda1.set_facecolor(GREEN_BG)
+        fig_vda.subplots_adjust(left=0.10, right=0.90, top=0.92, bottom=0.28)
+        ax_vda1.bar(x_vda - w_vda/2, veh_metrics["avg_distance"], w_vda, label="Avg Distance (km)", color=BAR_BLUE)
+        ax_vda1.set_ylabel("Avg Distance (km)")
+        ax_vda2 = ax_vda1.twinx()
+        ax_vda2.bar(x_vda + w_vda/2, veh_metrics["avg_delivery"], w_vda, label="Avg Delivery (mins)", color="#F59E0B")
+        ax_vda2.set_ylabel("Avg Delivery Time (mins)")
+        ax_vda1.set_xticks(x_vda)
+        ax_vda1.set_xticklabels(veh_metrics.index.astype(str), rotation=45, ha="right", fontsize=7)
+        ax_vda1.set_xlabel("Vehicle ID")
+        h1, l1 = ax_vda1.get_legend_handles_labels()
+        h2, l2 = ax_vda2.get_legend_handles_labels()
+        ax_vda1.legend(h1 + h2, l1 + l2, loc="upper right", fontsize=8)
+        ax_vda1.grid(axis="y", linestyle="-", color=GRID_GREEN, alpha=0.5)
+        ax_vda1.spines["top"].set_visible(False)
+        ax_vda1.spines["right"].set_visible(False)
+        ax_vda2.spines["top"].set_visible(False)
+        st.pyplot(fig_vda)
+        plt.close(fig_vda)
+
+
+# ============================================================
+# SECTION C: ZONE & CITY INVENTORY ANALYSIS
+# ============================================================
+
+if eda_option in [
+    "Store & Regional Analysis",
+    "Inventory Overview"
+]:
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("""
+    <div style="
+        background-color:#0B2C5D;
+        padding:18px 25px;
+        border-radius:10px;
+        color:white;
+        margin-top:20px;
+        margin-bottom:12px;
+    ">
+        <h3 style="margin:0;">Zone & City Inventory Analysis</h3>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <div style="
+        background-color:#2F75B5;
+        padding:24px;
+        border-radius:12px;
+        color:white;
+        font-size:16px;
+        line-height:1.7;
+        margin-bottom:20px;
+    ">
+    <b>What this section does:</b><br>
+    This provides a <b>granular geographic view of inventory health</b>
+    at the zone and city level — going deeper than regional analysis.
+
+    It focuses on:
+    <ul>
+        <li>Total stock value distribution by zone</li>
+        <li>Stockout rates by city — identifying high-risk urban markets</li>
+        <li>Overstock vs understock exposure by zone</li>
+        <li>Fill rate comparison across store types</li>
+    </ul><br>
+
+    <b>Why this matters:</b>
+
+    Regional averages can mask city-level or zone-level inventory crises.
+    A region with healthy average fill rates may still contain cities
+    with chronic stockout problems.<br>
+
+    <b>Key insights users get:</b>
+    <ul>
+        <li>City-level stockout hotspots requiring urgent attention</li>
+        <li>Zone-level excess inventory available for redistribution</li>
+        <li>Store-type specific fill rate benchmarks for policy setting</li>
+    </ul>
+    </div>
+    """, unsafe_allow_html=True)
+
+    GREEN_BG   = "#00D05E"
+    GRID_GREEN = "#3B3B3B"
+    BAR_BLUE   = "#001F5C"
+
+    col_zone      = "zone"
+    col_city      = "city"
+    col_store_type = "store_type"
+    col_stockval  = "stock_value"
+    col_stockout  = "stockout_pct"
+    col_fill_rate = "fill_rate_pct"
+    col_overstock = "overstock_qty"
+    col_understock = "understock_qty"
+
+    TOP_CITIES = 15
+
+    def blue_title_zone(title):
+        st.markdown(
+            f"""
+            <div style="background-color:#2F75B5;padding:14px;border-radius:8px;
+            font-size:16px;color:white;margin-bottom:8px;text-align:center;font-weight:600;">
+                {title}
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        blue_title_zone("Stock Value by Zone")
+        zone_sv = df.groupby(col_zone)[col_stockval].sum().sort_values(ascending=False)
+        chart_zsv = (
+            alt.Chart(zone_sv.reset_index())
+            .mark_bar(color=BAR_BLUE, cornerRadiusEnd=6)
+            .encode(
+                x=alt.X(f"{col_zone}:O", title="Zone"),
+                y=alt.Y(f"{col_stockval}:Q", title="Total Stock Value (₹)", scale=alt.Scale(padding=10)),
+                tooltip=[col_zone, col_stockval]
+            )
+            .properties(height=340, background=GREEN_BG,
+                        padding={"top":10,"left":10,"right":10,"bottom":10})
+            .configure_view(fill=GREEN_BG, strokeOpacity=0)
+            .configure_axis(labelColor="#000000", titleColor="#000000",
+                            gridColor="rgba(0,0,0,0.2)", domainColor="rgba(0,0,0,0.3)")
+        )
+        st.altair_chart(chart_zsv, use_container_width=True)
+
+    with col2:
+        blue_title_zone(f"Stockout Rate by City (Top {TOP_CITIES})")
+        city_so = df.groupby(col_city)[col_stockout].mean().sort_values(ascending=False).head(TOP_CITIES)
+        fig_cso, ax_cso = plt.subplots(figsize=(7, 4))
+        fig_cso.patch.set_facecolor(GREEN_BG)
+        ax_cso.set_facecolor(GREEN_BG)
+        fig_cso.subplots_adjust(left=0.08, right=0.98, top=0.92, bottom=0.32)
+        ax_cso.bar(city_so.index.astype(str), city_so.values, color="#EF4444")
+        ax_cso.set_xlabel("City")
+        ax_cso.set_ylabel("Avg Stockout Rate (%)")
+        ax_cso.tick_params(axis="x", rotation=45)
+        ax_cso.grid(axis="y", linestyle="-", color=GRID_GREEN, alpha=0.5)
+        ax_cso.spines["top"].set_visible(False)
+        ax_cso.spines["right"].set_visible(False)
+        st.pyplot(fig_cso)
+        plt.close(fig_cso)
+
+    col3, col4 = st.columns(2)
+
+    with col3:
+        blue_title_zone("Zone Overstock vs Understock")
+        zone_ov = df.groupby(col_zone).agg(
+            total_overstock=(col_overstock, "sum"),
+            total_understock=(col_understock, "sum")
+        ).sort_values("total_overstock", ascending=False)
+        x_zo = np.arange(len(zone_ov))
+        w_zo = 0.35
+        fig_zo, ax_zo = plt.subplots(figsize=(7, 4))
+        fig_zo.patch.set_facecolor(GREEN_BG)
+        ax_zo.set_facecolor(GREEN_BG)
+        fig_zo.subplots_adjust(left=0.08, right=0.98, top=0.92, bottom=0.17)
+        ax_zo.bar(x_zo - w_zo/2, zone_ov["total_overstock"], w_zo, label="Overstock", color=BAR_BLUE)
+        ax_zo.bar(x_zo + w_zo/2, zone_ov["total_understock"], w_zo, label="Understock", color="#EF4444")
+        ax_zo.set_xticks(x_zo)
+        ax_zo.set_xticklabels(zone_ov.index.astype(str), rotation=45, ha="right")
+        ax_zo.set_xlabel("Zone")
+        ax_zo.set_ylabel("Quantity")
+        ax_zo.legend()
+        ax_zo.grid(axis="y", linestyle="-", color=GRID_GREEN, alpha=0.5)
+        ax_zo.spines["top"].set_visible(False)
+        ax_zo.spines["right"].set_visible(False)
+        st.pyplot(fig_zo)
+        plt.close(fig_zo)
+
+    with col4:
+        blue_title_zone("Fill Rate by Store Type")
+        stype_fill = df.groupby(col_store_type)[col_fill_rate].mean().sort_values(ascending=False)
+        chart_stf = (
+            alt.Chart(stype_fill.reset_index())
+            .mark_bar(color="#00897B", cornerRadiusEnd=6)
+            .encode(
+                x=alt.X(f"{col_store_type}:O", title="Store Type"),
+                y=alt.Y(f"{col_fill_rate}:Q", title="Avg Fill Rate (%)", scale=alt.Scale(padding=10)),
+                tooltip=[col_store_type, col_fill_rate]
+            )
+            .properties(height=300, background=GREEN_BG,
+                        padding={"top":10,"left":10,"right":10,"bottom":10})
+            .configure_view(fill=GREEN_BG, strokeOpacity=0)
+            .configure_axis(labelColor="#000000", titleColor="#000000",
+                            gridColor="rgba(0,0,0,0.2)", domainColor="rgba(0,0,0,0.3)")
+        )
+        st.altair_chart(chart_stf, use_container_width=True)
+
+
+# ============================================================
+# SECTION D: DEMAND INDEX & MODEL CONFIDENCE CORRELATION
+# ============================================================
+
+if eda_option in [
+    "Cluster Transfer Analysis",
+    "Product-Level Analysis",
+    "Supplier Analysis"
+]:
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("""
+    <div style="
+        background-color:#0B2C5D;
+        padding:18px 25px;
+        border-radius:10px;
+        color:white;
+        margin-top:20px;
+        margin-bottom:12px;
+    ">
+        <h3 style="margin:0;">Demand Index & Model Confidence Correlation Analysis</h3>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <div style="
+        background-color:#2F75B5;
+        padding:24px;
+        border-radius:12px;
+        color:white;
+        font-size:16px;
+        line-height:1.7;
+        margin-bottom:20px;
+    ">
+    <b>What this section does:</b><br>
+    This analyzes how <b>demand index signals and model confidence scores</b>
+    correlate with inventory turnover and overstock patterns — providing
+    a cross-dimensional view of optimization readiness.
+
+    It focuses on:
+    <ul>
+        <li>Demand index distribution by product category</li>
+        <li>Model confidence scores across cluster model versions</li>
+        <li>Demand index vs inventory turnover relationship</li>
+        <li>Overstock index by region — identifying demand-supply misalignment</li>
+    </ul><br>
+
+    <b>Why this matters:</b>
+
+    High demand index with low inventory turnover indicates a replenishment timing problem.
+    High model confidence with low service level gain indicates a cluster assignment issue.
+    This analysis identifies these <b>optimization gaps systematically</b>.<br>
+
+    <b>Key insights users get:</b>
+    <ul>
+        <li>Which categories have misaligned demand signals vs actual turnover</li>
+        <li>Which model versions deliver the highest confidence for transfer decisions</li>
+        <li>Regional overstock index hotspots that contradict demand signals</li>
+    </ul>
+    </div>
+    """, unsafe_allow_html=True)
+
+    GREEN_BG   = "#00D05E"
+    GRID_GREEN = "#3B3B3B"
+    BAR_BLUE   = "#001F5C"
+
+    col_category       = "category"
+    col_demand_index   = "demand_index"
+    col_model_version  = "model_version"
+    col_confidence     = "model_confidence_score"
+    col_turnover       = "inventory_turnover"
+    col_overstock_idx  = "overstock_index"
+    col_region         = "region"
+
+    def blue_title_di(title):
+        st.markdown(
+            f"""
+            <div style="background-color:#2F75B5;padding:14px;border-radius:8px;
+            font-size:16px;color:white;margin-bottom:8px;text-align:center;font-weight:600;">
+                {title}
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        blue_title_di("Avg Demand Index by Product Category")
+        cat_di = df.groupby(col_category)[col_demand_index].mean().sort_values(ascending=False)
+        chart_di = (
+            alt.Chart(cat_di.reset_index())
+            .mark_bar(color=BAR_BLUE, cornerRadiusEnd=6)
+            .encode(
+                x=alt.X(f"{col_category}:O", title="Category"),
+                y=alt.Y(f"{col_demand_index}:Q", title="Avg Demand Index", scale=alt.Scale(padding=10)),
+                tooltip=[col_category, col_demand_index]
+            )
+            .properties(height=340, background=GREEN_BG,
+                        padding={"top":10,"left":10,"right":10,"bottom":10})
+            .configure_view(fill=GREEN_BG, strokeOpacity=0)
+            .configure_axis(labelColor="#000000", titleColor="#000000",
+                            gridColor="rgba(0,0,0,0.2)", domainColor="rgba(0,0,0,0.3)")
+        )
+        st.altair_chart(chart_di, use_container_width=True)
+
+    with col2:
+        blue_title_di("Model Confidence Score by Model Version")
+        mv_conf = df.groupby(col_model_version)[col_confidence].mean().sort_values(ascending=False)
+        chart_mvc = (
+            alt.Chart(mv_conf.reset_index())
+            .mark_bar(color="#00897B", cornerRadiusEnd=6)
+            .encode(
+                x=alt.X(f"{col_model_version}:O", title="Model Version"),
+                y=alt.Y(f"{col_confidence}:Q", title="Avg Confidence Score", scale=alt.Scale(padding=10)),
+                tooltip=[col_model_version, col_confidence]
+            )
+            .properties(height=340, background=GREEN_BG,
+                        padding={"top":10,"left":10,"right":10,"bottom":10})
+            .configure_view(fill=GREEN_BG, strokeOpacity=0)
+            .configure_axis(labelColor="#000000", titleColor="#000000",
+                            gridColor="rgba(0,0,0,0.2)", domainColor="rgba(0,0,0,0.3)")
+        )
+        st.altair_chart(chart_mvc, use_container_width=True)
+
+    col3, col4 = st.columns(2)
+
+    with col3:
+        blue_title_di("Demand Index vs Inventory Turnover (All Products)")
+        fig_dit, ax_dit = plt.subplots(figsize=(7, 4))
+        fig_dit.patch.set_facecolor(GREEN_BG)
+        ax_dit.set_facecolor(GREEN_BG)
+        fig_dit.subplots_adjust(left=0.10, right=0.98, top=0.92, bottom=0.13)
+        ax_dit.scatter(
+            df[col_demand_index],
+            df[col_turnover],
+            alpha=0.3,
+            color=BAR_BLUE,
+            s=15
+        )
+        ax_dit.set_xlabel("Demand Index")
+        ax_dit.set_ylabel("Inventory Turnover")
+        ax_dit.grid(True, linestyle="-", color=GRID_GREEN, alpha=0.5)
+        ax_dit.spines["top"].set_visible(False)
+        ax_dit.spines["right"].set_visible(False)
+        st.pyplot(fig_dit)
+        plt.close(fig_dit)
+
+    with col4:
+        blue_title_di("Avg Overstock Index by Region")
+        reg_oi = df.groupby(col_region)[col_overstock_idx].mean().sort_values(ascending=False)
+        chart_roi = (
+            alt.Chart(reg_oi.reset_index())
+            .mark_bar(color="#F59E0B", cornerRadiusEnd=6)
+            .encode(
+                x=alt.X(f"{col_region}:O", title="Region"),
+                y=alt.Y(f"{col_overstock_idx}:Q", title="Avg Overstock Index", scale=alt.Scale(padding=10)),
+                tooltip=[col_region, col_overstock_idx]
+            )
+            .properties(height=300, background=GREEN_BG,
+                        padding={"top":10,"left":10,"right":10,"bottom":10})
+            .configure_view(fill=GREEN_BG, strokeOpacity=0)
+            .configure_axis(labelColor="#000000", titleColor="#000000",
+                            gridColor="rgba(0,0,0,0.2)", domainColor="rgba(0,0,0,0.3)")
+        )
+        st.altair_chart(chart_roi, use_container_width=True)
+# STEP 4 – FEATURE ENGINEERING
+# ================================================================
+if not st.session_state.eda_completed:
+    st.info("ℹ Please explore at least one EDA analysis to unlock Feature Engineering.")
+    st.stop()
+
+st.markdown(
+    """
+    <div style="
+        background-color:#0B2C5D;
+        padding:18px 25px;
+        border-radius:10px;
+        color:white;
+        margin-top:10px;
+        margin-bottom:20px;
+    ">
+        <h3 style="margin:0;">
+            Feature Engineering
+        </h3>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+st.markdown(
+    """
+    <div style="
+        background-color:#2F75B5;
+        padding:24px;
+        border-radius:12px;
+        color:white;
+        font-size:16px;
+        line-height:1.7;
+        margin-bottom:20px;
+    ">
+
+
+    Feature Engineering is the foundation of building robust supply chain optimization models.
+    It involves extracting meaningful variables from raw supply chain data and selecting the most
+    impactful features for prediction and optimization. By transforming, encoding, and scaling data
+    properly, we improve the model's ability to <b>learn operational patterns</b> effectively.
+
+    
+
+    <b>In this supply chain project, we apply:</b>
+
+    <ul>
+        <li><b>Feature Extraction</b> – deriving new supply chain KPIs from raw fields
+            (e.g., inventory pressure ratio, route cost efficiency, supplier reliability index)</li>
+        <li><b>Feature Selection</b> – choosing the most relevant predictors for
+            inventory, routing, and transfer optimization targets</li>
+        <li><b>Encoding</b> – converting categorical supply chain dimensions
+            (cluster names, store types, regions, categories) into numeric form</li>
+        <li><b>Scaling</b> – normalizing numerical values for fair comparison
+            across inventory, logistics, and financial metrics</li>
+    </ul>
+
+
+    In this step, we ensure data is cleaned, relevant attributes are created,
+    and only the most predictive ones are used.
+
+    <ul>
+        <li>Handle missing values, outliers, and noisy supply chain records</li>
+        <li>Encode categorical variables and normalize numeric features</li>
+        <li>Create new features from existing data (domain-driven supply chain engineering)</li>
+        <li>Select the best subset of features using statistical and ML-based methods</li>
+    </ul>
+
+    This step directly influences <b>model accuracy, interpretability, and generalization
+    performance across inventory, routing, and supplier optimization scenarios.</b>
+
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+st.markdown("## Feature Selection")
+
+
+from sklearn.feature_selection import SelectKBest, f_regression, mutual_info_regression, RFE
 from sklearn.ensemble import RandomForestRegressor
 
-# ============================================================
-# 1️⃣ HEADER (SAME STYLE AS SAMPLE PROJECT)
-# ============================================================
+# ================================================================
+# TARGET VARIABLE SELECTION
+# ================================================================
+
 st.markdown("""
 <div style="
-    background-color:#0B2C5D;
+    background-color:#00D05E;
     padding:20px;
     border-radius:12px;
     color:white;
     font-size:20px;
     font-weight:600;
-    margin-top:40px;
+    margin-top:30px;
     margin-bottom:20px;
 ">
-Machine Learning Implementation
+Select Target Variable
 </div>
 """, unsafe_allow_html=True)
 
-st.markdown("<div style='margin-bottom:35px'></div>", unsafe_allow_html=True)
 
-# Check if scaled features exist
-if "scaled_features" not in st.session_state:
-    st.warning("Please apply Feature Scaling before training.")
+numeric_columns = df.select_dtypes(include=["int64", "float64"]).columns.tolist()
+
+if len(numeric_columns) == 0:
+    st.error("No numeric columns found for feature selection.")
     st.stop()
 
-# ============================================================
-# 2️⃣ MODEL MENU (LIKE IMAGE + SAMPLE PROJECT)
-# ============================================================
-
-if "model_selected" not in st.session_state:
-    st.session_state["model_selected"] = None
-
-# Custom option menu function to replace streamlit_option_menu
-def custom_model_menu(options, icons=None):
-    if icons is None:
-        icons = ["📊"] * len(options)
-    
-    cols = st.columns(len(options))
-    selected_idx = 0
-    
-    for i, (col, option, icon) in enumerate(zip(cols, options, icons)):
-        with col:
-            if st.button(f"{icon}\n{option}", use_container_width=True):
-                selected_idx = i
-                st.session_state["model_selected"] = option
-                st.rerun()
-    
-    return selected_idx
-
-model_options = [
-    "Time-Series Forecasting (SARIMA/ARIMA)",
-    "Prophet Based Demand Forecast", 
-    "Machine Learning Regression Forecast",
-    "Deep Learning Forecast"
+# Prefer supply chain optimization target columns
+preferred_targets = [
+    "on_hand_qty", "demand_index", "delivery_time_mins",
+    "fill_rate_pct", "stockout_pct", "inventory_turnover",
+    "transfer_qty", "route_efficiency_score", "fuel_cost"
 ]
+default_target = next((t for t in preferred_targets if t in numeric_columns), numeric_columns[0])
 
-model_icons = ["📈", "📅", "🤖", "🧠"]
+target_column = st.selectbox(
+    "Choose your target column (e.g., on_hand_qty, demand_index, delivery_time_mins):",
+    numeric_columns,
+    index=numeric_columns.index(default_target)
+)
 
-selected_model = custom_model_menu(model_options, model_icons)
-
-if st.session_state["model_selected"]:
-    selected_model = st.session_state["model_selected"]
-else:
-    selected_model = model_options[0]
-
-st.markdown("---")
-
-# ============================================================
-# DATA PREPARATION
-# ============================================================
-
-X = st.session_state["scaled_features"].copy()
-y = df[target_column].copy()
-
-X = X.fillna(X.median())
-y = y.fillna(y.median())
-
-split_index = int(len(X) * 0.8)
-
-X_train = X.iloc[:split_index]
-X_test = X.iloc[split_index:]
-
-y_train = y.iloc[:split_index]
-y_test = y.iloc[split_index:]
-
-# ============================================================
-# 3️⃣ MODEL ENGINEERING
-# ============================================================
+# ================================================================
+# FEATURE SELECTION APPROACH
+# ================================================================
 
 st.markdown("""
-<div style='background:#FDFBD4;padding:15px;border-radius:10px;margin-top:20px'>
-<b>Model Engineering</b>
+<div style="
+    background-color:#163A70;
+    padding:18px;
+    border-radius:10px;
+    color:white;
+    font-size:18px;
+    font-weight:600;
+    margin-top:25px;
+    margin-bottom:15px;
+">
+Choose Feature Selection Approach
 </div>
 """, unsafe_allow_html=True)
 
-st.info(f"Training Samples: {X_train.shape[0]} | Testing Samples: {X_test.shape[0]}")
 
-# ------------------------------------------------------------
-# TIME SERIES MODEL
-# ------------------------------------------------------------
-if selected_model == "Time-Series Forecasting (SARIMA/ARIMA)":
-    try:
-        from statsmodels.tsa.arima.model import ARIMA
-        
-        # Prepare time series data
-        if "created_at" in df.columns:
-            df_sorted = df.sort_values("created_at")
-            y_series = df_sorted[target_column].copy()
-        else:
-            y_series = df[target_column].copy()
-        
-        split_index = int(len(y_series) * 0.8)
-        y_train = y_series.iloc[:split_index]
-        y_test = y_series.iloc[split_index:]
+if "selection_mode" not in st.session_state:
+    st.session_state.selection_mode = "Automated"
 
-        with st.spinner("Training ARIMA Model..."):
-            model = ARIMA(y_train, order=(1,0,1))
-            model_fit = model.fit()
-            predictions = model_fit.forecast(steps=len(y_test))
-            predictions = pd.Series(predictions, index=y_test.index)
+selection_mode = st.radio(
+    "",
+    ["Automated", "Manual"],
+    horizontal=True,
+    key="selection_mode"
+)
 
-        st.success("ARIMA Model Training Completed")
+selection_mode = st.session_state.selection_mode
 
-        # Visualization
-        st.markdown("""
-        <div style='background:#E9F7EF;padding:15px;border-radius:10px;margin-top:25px'>
-        <b>Prediction Visualization</b>
+
+# ================================================================
+# MANUAL SELECTION
+# ================================================================
+if selection_mode == "Manual":
+
+    feature_columns = [
+        col for col in df.select_dtypes(include=["int64", "float64"]).columns
+        if col != target_column and "id" not in col.lower()
+    ]
+
+    if "selected_features" not in st.session_state:
+        st.session_state["selected_features"] = feature_columns[:5]
+
+    col1, col2 = st.columns([1, 4])
+    with col1:
+        if st.button("Select All"):
+            st.session_state["selected_features"] = feature_columns.copy()
+    with col2:
+        if st.button("Clear All"):
+            st.session_state["selected_features"] = []
+
+    sorted_features = sorted(
+        feature_columns,
+        key=lambda x: x not in st.session_state["selected_features"]
+    )
+
+    feature_df = pd.DataFrame({
+        "Select": [col in st.session_state["selected_features"] for col in sorted_features],
+        "Feature": sorted_features
+    })
+
+    st.markdown("### Select Features")
+
+    edited_df = st.data_editor(
+        feature_df,
+        hide_index=True,
+        use_container_width=True,
+        num_rows="fixed",
+        column_config={
+            "Select": st.column_config.CheckboxColumn(width="small"),
+            "Feature": st.column_config.TextColumn(width="large")
+        }
+    )
+
+    selected_features = edited_df.loc[edited_df["Select"], "Feature"].tolist()
+    st.session_state["selected_features"] = selected_features
+
+    if selected_features:
+
+        st.markdown(f"""
+        <div class="quality-card">
+            <div class="quality-title">
+                Selected Features ({len(selected_features)})
+            </div>
+            <div class="table-scroll">
+                <table class="clean-table">
+                    <tr>
+                        <th>#</th>
+                        <th>Feature Name</th>
+                    </tr>
+                    {''.join([
+                        f"<tr><td>{i+1}</td><td>{feat}</td></tr>"
+                        for i, feat in enumerate(selected_features)
+                    ])}
+                </table>
+            </div>
         </div>
         """, unsafe_allow_html=True)
 
-        # Create timeline for visualization
-        if "created_at" in df.columns:
-            timeline_df = pd.DataFrame({
-                "date": df.iloc[y_test.index]["created_at"],
-                "actual": y_test.values,
-                "predicted": predictions.values
-            })
-            timeline_df = timeline_df.sort_values("date")
+    else:
+        st.info("No features selected.")
 
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(
-                x=timeline_df["date"],
-                y=timeline_df["actual"],
-                mode='lines+markers',
-                name="Actual Sales Demand",
-                line=dict(color='royalblue', width=3),
-                marker=dict(size=6)
-            ))
-            fig.add_trace(go.Scatter(
-                x=timeline_df["date"],
-                y=timeline_df["predicted"],
-                mode='lines',
-                name="Forecasted Demand",
-                line=dict(color='green', width=3, dash="dash")
-            ))
-            fig.update_layout(
-                title="Product Demand Forecasting – Sales Timeline",
-                xaxis_title="Sales Timeline (Transaction Date)",
-                yaxis_title="Product Demand (Units Sold)",
-                legend_title="Demand Type",
-                template="plotly_white"
-            )
-            st.plotly_chart(fig, use_container_width=True)
+    st.session_state["selected_features"] = selected_features
+
+
+# ================================================================
+# AUTOMATED SELECTION
+# ================================================================
+else:
+
+    numeric_df = df.select_dtypes(include=["int64", "float64"]).dropna()
+
+    if target_column not in numeric_df.columns:
+        st.error("Target must be numeric for Automated selection.")
+        st.stop()
+
+    X = numeric_df.drop(columns=[target_column])
+    y = numeric_df[target_column]
+
+    if X.shape[1] == 0:
+        st.error("No numeric features available for selection.")
+        st.stop()
+
+
+    if selection_mode == "Automated":
+
+        st.markdown("""
+<div style="
+    background-color:#163A70;
+    padding:20px;
+    border-radius:12px;
+    color:white;
+    font-size:20px;
+    font-weight:600;
+    margin-top:30px;
+    margin-bottom:20px;
+">
+        Feature Selection Methods
+        </div>
+        """, unsafe_allow_html=True)
+
+        if "method_selection" not in st.session_state:
+            st.session_state.method_selection = "Correlation with Target"
+
+        def method_tile(label):
+            active = st.session_state.method_selection == label
+
+            if active:
+                st.markdown(
+                    f"""
+                    <div style="
+                        background-color:#163A70;
+                        color:white;
+                        padding:16px;
+                        border-radius:10px;
+                        font-weight:600;
+                        text-align:center;
+                        margin-bottom:12px;
+                    ">
+                        {label}
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+            else:
+                if st.button(label, use_container_width=True):
+                    st.session_state.method_selection = label
+                    st.rerun()
+
+        with st.expander(" ", expanded=True):
+
+            row1 = st.columns(2)
+            row2 = st.columns(2)
+
+            methods = [
+                "Correlation with Target",
+                "SelectKBest",
+                "Recursive Feature Elimination (RFE)",
+                "Mutual Information"
+            ]
+
+            with row1[0]:
+                method_tile(methods[0])
+            with row1[1]:
+                method_tile(methods[1])
+
+            with row2[0]:
+                method_tile(methods[2])
+            with row2[1]:
+                method_tile(methods[3])
+
+        method = st.session_state.method_selection
+
+
+    # ================================================================
+    # 1. CORRELATION WITH TARGET
+    # ================================================================
+    if method == "Correlation with Target":
+
+        corr = numeric_df.corr()[target_column]
+        corr_df = corr.reset_index()
+        corr_df.columns = ["Feature", "Correlation"]
+        corr_df = corr_df[corr_df["Feature"] != target_column]
+
+        corr_df["Abs_Correlation"] = corr_df["Correlation"].abs()
+        corr_df = corr_df.sort_values("Abs_Correlation", ascending=False)
+
+        top_corr = corr_df.head(20)
+        selected_features = top_corr["Feature"].tolist()
+
+        st.session_state["selected_features"] = selected_features
+
+        st.markdown(f"""
+        <div class="quality-card">
+            <div class="quality-title">
+                Top 20 Features – Correlation with Target ({target_column})
+            </div>
+            <div class="table-scroll">
+                <table class="clean-table">
+                    <tr>
+                        <th>#</th>
+                        <th>Feature</th>
+                        <th>Correlation</th>
+                        <th>Abs Correlation</th>
+                    </tr>
+                    {''.join([
+                        f"<tr><td>{i+1}</td><td>{r['Feature']}</td><td>{r['Correlation']:.4f}</td><td>{r['Abs_Correlation']:.4f}</td></tr>"
+                        for i, (_, r) in enumerate(top_corr.iterrows())
+                    ])}
+                </table>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        GREEN_BG_fe = "#00D05E"
+        GRID_FE = "#3B3B3B"
+        fig_c, ax_c = plt.subplots(figsize=(9, 5))
+        fig_c.patch.set_facecolor(GREEN_BG_fe)
+        ax_c.set_facecolor(GREEN_BG_fe)
+        colors = [BAR_BLUE if v >= 0 else "#EF4444" for v in top_corr["Correlation"]]
+        ax_c.barh(top_corr["Feature"], top_corr["Correlation"], color=colors)
+        ax_c.set_xlabel("Correlation Coefficient")
+        ax_c.axvline(0, color="black", linewidth=0.8)
+        ax_c.grid(axis="x", linestyle="-", color=GRID_FE, alpha=0.5)
+        ax_c.spines["top"].set_visible(False)
+        ax_c.spines["right"].set_visible(False)
+        st.pyplot(fig_c)
+        plt.close(fig_c)
+
+
+    # ================================================================
+    # 2. SELECTKBEST
+    # ================================================================
+    elif method == "SelectKBest":
+
+        selector = SelectKBest(f_regression, k=min(20, X.shape[1]))
+        selector.fit(X, y)
+
+        scores = pd.Series(selector.scores_, index=X.columns)
+        scores = scores.sort_values(ascending=False).head(20)
+        selected_features = scores.index.tolist()
+
+        st.session_state["selected_features"] = selected_features
+
+        st.markdown(f"""
+        <div class="quality-card">
+            <div class="quality-title">
+                Top 20 Features – SelectKBest (F-Score)
+            </div>
+            <div class="table-scroll">
+                <table class="clean-table">
+                    <tr>
+                        <th>#</th>
+                        <th>Feature</th>
+                        <th>F-Score</th>
+                    </tr>
+                    {''.join([
+                        f"<tr><td>{i+1}</td><td>{feat}</td><td>{scores.iloc[i]:.4f}</td></tr>"
+                        for i, feat in enumerate(selected_features)
+                    ])}
+                </table>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+
+    # ================================================================
+    # 3. RFE
+    # ================================================================
+    elif method == "Recursive Feature Elimination (RFE)":
+
+        model = RandomForestRegressor(n_estimators=50, random_state=42)
+        rfe = RFE(model, n_features_to_select=min(20, X.shape[1]))
+        rfe.fit(X, y)
+
+        selected_features = X.columns[rfe.support_].tolist()
+        st.session_state["selected_features"] = selected_features
+
+        st.markdown(f"""
+        <div class="quality-card">
+            <div class="quality-title">
+                Top Features Selected by RFE
+            </div>
+            <div class="table-scroll">
+                <table class="clean-table">
+                    <tr>
+                        <th>#</th>
+                        <th>Feature</th>
+                    </tr>
+                    {''.join([
+                        f"<tr><td>{i+1}</td><td>{feat}</td></tr>"
+                        for i, feat in enumerate(selected_features)
+                    ])}
+                </table>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+
+    # ================================================================
+    # 4. MUTUAL INFORMATION
+    # ================================================================
+    elif method == "Mutual Information":
+
+        mi = mutual_info_regression(X, y)
+        mi_series = pd.Series(mi, index=X.columns)
+
+        top_mi = mi_series.sort_values(ascending=False).head(20)
+        selected_features = top_mi.index.tolist()
+
+        st.session_state["selected_features"] = selected_features
+
+        st.markdown(f"""
+        <div class="quality-card">
+            <div class="quality-title">
+                Top 20 Features by Mutual Information
+            </div>
+            <div class="table-scroll">
+                <table class="clean-table">
+                    <tr>
+                        <th>#</th>
+                        <th>Feature</th>
+                        <th>MI Score</th>
+                    </tr>
+                    {''.join([
+                        f"<tr><td>{i+1}</td><td>{feat}</td><td>{top_mi.iloc[i]:.4f}</td></tr>"
+                        for i, feat in enumerate(selected_features)
+                    ])}
+                </table>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+
+# ================================================================
+# FEATURE IMPORTANCE (PERMUTATION IMPORTANCE)
+# ================================================================
+
+selected_features = st.session_state.get("selected_features", [])
+
+st.markdown("## Feature Importance")
+
+if not selected_features:
+    st.info("Please select at least one feature to compute feature importance.")
+else:
+
+    from sklearn.inspection import permutation_importance
+    from sklearn.linear_model import LinearRegression
+
+    numeric_df = df.select_dtypes(include=["int64", "float64"]).copy()
+    numeric_df = numeric_df.replace([np.inf, -np.inf], np.nan)
+    numeric_df = numeric_df.fillna(numeric_df.median())
+
+    if target_column not in numeric_df.columns:
+        st.warning("Target column must be numeric to compute feature importance.")
+    else:
+        X = numeric_df.drop(columns=[target_column])
+        y = numeric_df[target_column]
+
+        valid_features = [col for col in selected_features if col in X.columns]
+
+        if not valid_features:
+            st.info("Selected features are not valid numeric features.")
         else:
-            # Simple line plot if no date column
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(
-                x=list(range(len(y_test))),
-                y=y_test.values,
-                mode='lines+markers',
-                name="Actual Sales Demand",
-                line=dict(color='royalblue', width=3)
-            ))
-            fig.add_trace(go.Scatter(
-                x=list(range(len(predictions))),
-                y=predictions.values,
-                mode='lines',
-                name="Forecasted Demand",
-                line=dict(color='green', width=3, dash="dash")
-            ))
-            fig.update_layout(
-                title="Product Demand Forecasting",
-                xaxis_title="Sample Index",
-                yaxis_title="Product Demand (Units Sold)",
-                template="plotly_white"
+            X = X[valid_features]
+
+            model = LinearRegression()
+            model.fit(X, y)
+
+            result = permutation_importance(
+                model,
+                X,
+                y,
+                n_repeats=10,
+                random_state=42,
+                n_jobs=-1
             )
-            st.plotly_chart(fig, use_container_width=True)
 
-    except ImportError:
-        st.error("statsmodels library not found. Please install it with: pip install statsmodels")
-    except Exception as e:
-        st.error(f"Error in ARIMA model: {str(e)}")
-
-# ------------------------------------------------------------
-# PROPHET MODEL
-# ------------------------------------------------------------
-elif selected_model == "Prophet Based Demand Forecast":
-    try:
-        from prophet import Prophet
-        
-        if "created_at" in df.columns:
-            prophet_df = pd.DataFrame({
-                "ds": pd.to_datetime(df["created_at"]),
-                "y": df[target_column]
-            })
-        else:
-            # Create dummy dates if no date column
-            prophet_df = pd.DataFrame({
-                "ds": pd.date_range(start='2023-01-01', periods=len(df), freq='D'),
-                "y": df[target_column]
-            })
-
-        with st.spinner("Training Prophet Model..."):
-            model = Prophet()
-            model.fit(prophet_df)
-            
-            future = model.make_future_dataframe(periods=len(y_test))
-            forecast = model.predict(future)
-            
-            predictions = forecast["yhat"].tail(len(y_test)).values
-            predictions = pd.Series(predictions, index=y_test.index)
-
-        st.success("Prophet Model Training Completed")
-
-        # Show forecast components
-        st.subheader("Forecast Components")
-        fig1 = model.plot_components(forecast)
-        st.pyplot(fig1, use_container_width=True)
-
-    except ImportError:
-        st.error("Prophet library not found. Please install it with: pip install prophet")
-    except Exception as e:
-        st.error(f"Error in Prophet model: {str(e)}")
-
-# ------------------------------------------------------------
-# MACHINE LEARNING REGRESSION
-# ------------------------------------------------------------
-elif selected_model == "Machine Learning Regression Forecast":
-    
-    with st.spinner("Training ML Regression Models..."):
-        # Train multiple models
-        models = {
-            "Linear Regression": LinearRegression(),
-            "Random Forest": RandomForestRegressor(n_estimators=100, random_state=42),
-            "XGBoost": xgb.XGBRegressor(random_state=42)
-        }
-        
-        model_predictions = {}
-        model_metrics = {}
-        
-        for name, model in models.items():
-            model.fit(X_train, y_train)
-            pred = model.predict(X_test)
-            model_predictions[name] = pred
-            model_metrics[name] = {
-                "MAE": mean_absolute_error(y_test, pred),
-                "R2": r2_score(y_test, pred)
-            }
-    
-    st.success("ML Models Training Completed")
-    
-    # Display model comparison
-    st.subheader("Model Comparison")
-    metrics_df = pd.DataFrame(model_metrics).T
-    st.dataframe(metrics_df)
-    
-    # Best model visualization
-    best_model = min(model_metrics.keys(), key=lambda x: model_metrics[x]["MAE"])
-    best_predictions = model_predictions[best_model]
-    
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=y_test.values,
-        y=best_predictions,
-        mode='markers',
-        name=f"{best_model} Predictions",
-        marker=dict(size=8, color='blue', opacity=0.6)
-    ))
-    
-    # Perfect prediction line
-    fig.add_trace(go.Scatter(
-        x=[y_test.min(), y_test.max()],
-        y=[y_test.min(), y_test.max()],
-        mode='lines',
-        name="Perfect Prediction",
-        line=dict(color='red', dash='dash')
-    ))
-    
-    fig.update_layout(
-        title=f"Actual vs Predicted - {best_model}",
-        xaxis_title="Actual Values",
-        yaxis_title="Predicted Values",
-        template="plotly_white"
-    )
-    st.plotly_chart(fig, use_container_width=True)
-
-# ------------------------------------------------------------
-# DEEP LEARNING FORECAST
-# ------------------------------------------------------------
-elif selected_model == "Deep Learning Forecast":
-    try:
-        import tensorflow as tf
-        from tensorflow.keras.models import Sequential
-        from tensorflow.keras.layers import Dense, LSTM, Dropout
-        
-        with st.spinner("Training Deep Learning Model..."):
-            # Prepare data for LSTM
-            # Reshape data for LSTM [samples, timesteps, features]
-            X_train_reshaped = X_train.values.reshape((X_train.shape[0], 1, X_train.shape[1]))
-            X_test_reshaped = X_test.values.reshape((X_test.shape[0], 1, X_test.shape[1]))
-            
-            # Build LSTM model
-            model = Sequential([
-                LSTM(50, activation='relu', input_shape=(1, X_train.shape[1]), return_sequences=True),
-                Dropout(0.2),
-                LSTM(50, activation='relu'),
-                Dropout(0.2),
-                Dense(1)
-            ])
-            
-            model.compile(optimizer='adam', loss='mse', metrics=['mae'])
-            
-            # Train model
-            history = model.fit(
-                X_train_reshaped, y_train,
-                epochs=50,
-                batch_size=32,
-                validation_split=0.2,
-                verbose=0
+            importances = pd.Series(
+                result.importances_mean,
+                index=X.columns
             )
-            
-            # Make predictions
-            predictions = model.predict(X_test_reshaped).flatten()
-            predictions = pd.Series(predictions, index=y_test.index)
-        
-        st.success("Deep Learning Model Training Completed")
-        
-        # Show training history
-        st.subheader("Training History")
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(
-            x=list(range(len(history.history['loss']))),
-            y=history.history['loss'],
-            name='Training Loss',
-            line=dict(color='blue')
-        ))
-        fig.add_trace(go.Scatter(
-            x=list(range(len(history.history['val_loss']))),
-            y=history.history['val_loss'],
-            name='Validation Loss',
-            line=dict(color='red')
-        ))
-        fig.update_layout(
-            title="Model Training Loss",
-            xaxis_title="Epoch",
-            yaxis_title="Loss",
-            template="plotly_white"
-        )
-        st.plotly_chart(fig, use_container_width=True)
-        
-    except ImportError:
-        st.error("TensorFlow library not found. Please install it with: pip install tensorflow")
-    except Exception as e:
-        st.error(f"Error in Deep Learning model: {str(e)}")
 
-# ============================================================
-# 5️⃣ MODEL INSIGHTS
-# ============================================================
+            importances = importances.clip(lower=0)
 
-if 'predictions' in locals() or selected_model == "Machine Learning Regression Forecast":
-    st.markdown("""
-    <div style='background:#FFF3CD;padding:15px;border-radius:10px;margin-top:25px'>
-    <b>Model Insights</b>
+            top_features = importances.sort_values(ascending=False)
+
+    st.markdown(f"""
+    <div class="quality-card">
+        <div class="quality-title">
+            Top Features by Permutation Importance
+        </div>
+        <div class="table-scroll">
+            <table class="clean-table">
+                <tr>
+                    <th>#</th>
+                    <th>Feature</th>
+                    <th>Importance Score</th>
+                </tr>
+                {''.join([
+                    f"<tr><td>{i+1}</td><td>{feat}</td><td>{top_features.iloc[i]:.4f}</td></tr>"
+                    for i, feat in enumerate(top_features.index)
+                ])}
+            </table>
+        </div>
     </div>
     """, unsafe_allow_html=True)
-    
-    if selected_model == "Machine Learning Regression Forecast":
-        # Show best model metrics
-        for name, metrics in model_metrics.items():
-            col1, col2 = st.columns(2)
-            with col1:
-                st.metric(f"{name} - MAE", round(metrics["MAE"], 2))
-            with col2:
-                st.metric(f"{name} - R²", round(metrics["R2"], 3))
-    else:
-        # Single model metrics
-        try:
-            mae = mean_absolute_error(y_test, predictions)
-            r2 = r2_score(y_test, predictions)
-            
-            col1, col2 = st.columns(2)
-            col1.metric("Mean Absolute Error", round(mae, 2))
-            col2.metric("R² Score", round(r2, 3))
-        except:
-            st.info("Model metrics not available")
+
+
+# ================================================================
+# AUTO RESET SCALING IF FEATURES OR TARGET CHANGE
+# ================================================================
+
+current_signature = (
+    tuple(sorted(st.session_state.get("selected_features", []))),
+    target_column,
+    st.session_state.get("selection_mode"),
+    st.session_state.get("method_selection")
+)
+
+if "feature_signature" not in st.session_state:
+    st.session_state["feature_signature"] = current_signature
+
+if st.session_state["feature_signature"] != current_signature:
+
+    if "scaled_features" in st.session_state:
+        del st.session_state["scaled_features"]
+
+    if "scaler_object" in st.session_state:
+        del st.session_state["scaler_object"]
+
+    st.session_state["feature_signature"] = current_signature
+
+
+from sklearn.preprocessing import StandardScaler
 
 st.markdown("""
-    <br><br>
-    <div style="
-        background-color:#2E86C1;
-        padding:12px;
-        text-align:center;
-        color:white;
-        border-radius:6px;
-        font-size:14px;">
-        © 2025 SupplySyncAI – Inventory Intelligence & Analytics Platform
-    </div>
+<div style="
+    background-color:#2F75B5;
+    padding:20px;
+    border-radius:10px;
+    color:white;
+    font-size:18px;
+    font-weight:600;
+    margin-top:30px;
+    margin-bottom:20px;
+">
+Feature Scaling (Z-Score Scaling)
+</div>
 """, unsafe_allow_html=True)
 
 
-# ---------- STOCK VALUE BY PRODUCT ----------
-if 'product_id' in df.columns and col_stock_value:
-    st.markdown(
-        """
-        <div style="
-            background-color:#2F75B5;
-            padding:18px 25px;
-            border-radius:10px;
-            font-size:20px;
-            color:white;
-            margin-top:20px;
-            margin-bottom:10px;
-            text-align:center;
-        ">
-            <b>Stock Value By Product</b>
-        </div>
-        """,
-        unsafe_allow_html=True
+if "selected_features" not in st.session_state or not st.session_state["selected_features"]:
+    st.info("Please select features first.")
+
+selected_features = st.session_state["selected_features"]
+
+X = df[selected_features].select_dtypes(include=["int64", "float64"]).copy()
+
+if X.shape[1] == 0:
+    st.warning("No numeric features selected.")
+    st.stop()
+
+selection_mode_val = st.session_state.get("selection_mode", "Manual")
+method_used = st.session_state.get("method_selection", "Manual Selection")
+selected_features = st.session_state.get("selected_features", [])
+
+st.markdown(f"""
+<div class="quality-card">
+    <div class="quality-title">
+        Current Configuration
+    </div>
+    <div class="table-scroll">
+        <table class="clean-table">
+            <tr>
+                <th>Item</th>
+                <th>Value</th>
+            </tr>
+            <tr>
+                <td>Target Column</td>
+                <td>{target_column}</td>
+            </tr>
+            <tr>
+                <td>Selection Approach</td>
+                <td>{selection_mode_val}</td>
+            </tr>
+            <tr>
+                <td>Method Used</td>
+                <td>{method_used if selection_mode_val == "Automated" else "Manual Selection"}</td>
+            </tr>
+            <tr>
+                <td>Total Selected Features</td>
+                <td>{len(selected_features)}</td>
+            </tr>
+        </table>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+if st.button("Apply Feature Scaling"):
+
+    scaler = StandardScaler()
+    scaled_values = scaler.fit_transform(X)
+
+    scaled_df = pd.DataFrame(
+        scaled_values,
+        columns=X.columns,
+        index=X.index
     )
 
-    stock_product = (
-        df.groupby('product_id')[col_stock_value]
-            .sum()
-            .sort_values(ascending=False)
-        )
+    st.session_state["scaled_features"] = scaled_df
+    st.session_state["scaler_object"] = scaler
+    st.success("✔ Standard Scaling Applied Successfully")
 
-    # Create Matplotlib chart with custom axis labels
-    fig, ax = plt.subplots(figsize=(16, 8))  # Increased figure size
-    
-    bars = ax.bar(stock_product.index.astype(str), stock_product.values, color='#2F75B5')
-    
-    ax.set_title('Stock Value By Product', fontsize=20, color='#2F75B5', pad=20)
-    ax.set_xlabel('Product ID', fontsize=14, color='#333')
-    ax.set_ylabel('Stock Value', fontsize=14, color='#333')
-    
-    # Format y-axis with commas
-    ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x:,.0f}'))
-    
-    # Handle x-axis labels - show every nth label if too many products
-    n_products = len(stock_product)
-    if n_products > 20:
-        step = max(1, n_products // 15)  # Show max 15 labels
-        ax.set_xticks(range(0, n_products, step))
-        ax.set_xticklabels(stock_product.index.astype(str)[::step], rotation=45, ha='right', fontsize=10)
-    else:
-        plt.xticks(rotation=45, ha='right', fontsize=12)
-    
-    plt.yticks(fontsize=12)
-    
-    # Remove top and right spines for cleaner look
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-    
-    # Add grid for better readability
-    ax.grid(axis='y', color='lightgray', linestyle='-', linewidth=0.5, alpha=0.6)
-    
-    plt.tight_layout()
-    
-    # Display in Streamlit
-    st.pyplot(fig, use_container_width=True)
-    plt.close(fig)
+
+if "scaled_features" in st.session_state:
+
+    scaled_df = st.session_state["scaled_features"]
+
+    st.markdown("### Before Scaling")
+    render_html_table(X.head(10), max_height=300)
+
+    st.markdown("### After Scaling")
+    render_html_table(scaled_df.head(10), max_height=300)
