@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 import io
 import numpy as np
 import altair as alt
-from streamlit_option_menu import option_menu
 
 st.set_page_config(page_title="SupplySyncAI – Supply Chain Intelligence", layout="wide")
 
@@ -694,7 +693,7 @@ st.markdown(
 st.write("")
 
 step = st.radio(
-    "",
+    "Select a Data Pre-Processing Step",
     [
         "Remove Duplicate Rows",
         "Remove Outliers",
@@ -702,7 +701,7 @@ step = st.radio(
     ],
     index=None,
     horizontal=True,
-    label_visibility="collapsed"
+    label_visibility="visible"
 )
 
 
@@ -3667,7 +3666,7 @@ if "selection_mode" not in st.session_state:
     st.session_state.selection_mode = "Automated"
 
 selection_mode = st.radio(
-    "",
+    "Feature Selection Mode",
     ["Automated", "Manual"],
     horizontal=True,
     key="selection_mode"
