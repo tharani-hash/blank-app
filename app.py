@@ -525,7 +525,7 @@ st.markdown(
 # ================================================================
 @st.cache_data
 def load_data():
-    return pd.read_csv("data/FACT_SUPPLY_CHAIN_DATA.csv")
+    return pd.read_csv("FACT_SUPPLY_CHAIN_DATA.csv")
 
 
 def show_small_plot(fig):
